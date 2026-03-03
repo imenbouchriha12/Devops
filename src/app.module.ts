@@ -25,6 +25,14 @@ import { DeliveryNote } from './sales/entities/delivery-note.entity';
 import { DeliveryNoteItem } from './sales/entities/delivery-note-item.entity';
 import { StockExit } from './sales/entities/stock-exit.entity';
 import { StockExitItem } from './sales/entities/stock-exit-item.entity';
+import { AccountsModule } from './accounts/accounts.module';
+import { PaymentsModule } from './payments/payments.module';
+import { Payment } from './payments/entities/payment.entity';
+import { Account } from './accounts/entities/account.entity';
+import { SupplierPaymentsModule } from './supplier-payments/supplier-payments.module';
+import { TransactionsModule } from './transactions/transactions.module';
+import { SupplierPayment } from './supplier-payments/entities/supplier-payment.entity';
+import { Transaction } from './transactions/entities/transaction.entity';
 
 
 @Module({
@@ -63,6 +71,10 @@ import { StockExitItem } from './sales/entities/stock-exit-item.entity';
           DeliveryNoteItem,
           StockExit,
           StockExitItem,
+          Account,
+          Payment,
+          SupplierPayment,
+          Transaction,
         ],
         synchronize: true,  // auto-creates/updates tables. SET TO FALSE in production.
         logging: true,      // logs every SQL query to console. Useful for debugging.
@@ -77,8 +89,12 @@ import { StockExitItem } from './sales/entities/stock-exit-item.entity';
     ClientsModule,
 
     SalesModule,
-       
-     
+    AccountsModule,
+    PaymentsModule,
+    SupplierPaymentsModule,
+    TransactionsModule,
+
+
   ],
 })
 export class AppModule {}
