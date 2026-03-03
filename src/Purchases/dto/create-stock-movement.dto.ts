@@ -1,3 +1,4 @@
+
 import { IsUUID, IsInt, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class CreateStockMovementDto {

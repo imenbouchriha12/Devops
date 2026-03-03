@@ -1,3 +1,4 @@
+
 import { IsUUID, IsDateString, IsOptional, IsDecimal, IsString } from 'class-validator';
 
 export class UpdateSupplierPODto {

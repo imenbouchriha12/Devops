@@ -1,3 +1,4 @@
+
 import { IsUUID, IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class CreateGoodsReceiptDto {
@@ -16,4 +17,4 @@ export class CreateGoodsReceiptDto {
   @IsOptional()
   @IsString()
   notes?: string;
-}
+  }
