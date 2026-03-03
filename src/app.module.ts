@@ -16,6 +16,17 @@ import { TaxRate } from './businesses/entities/tax-rate.entity';
 import { Client } from './clients/entities/client.entity';
 import { ClientsModule } from './clients/clients.module';
 
+import { SalesModule } from './sales/sales.module';
+import { Quote } from './sales/entities/quote.entity';
+import { QuoteItem } from './sales/entities/quote-item.entity';
+import { SalesOrder } from './sales/entities/sales-order.entity';
+import { SalesOrderItem } from './sales/entities/sales-order-item.entity';
+import { DeliveryNote } from './sales/entities/delivery-note.entity';
+import { DeliveryNoteItem } from './sales/entities/delivery-note-item.entity';
+import { StockExit } from './sales/entities/stock-exit.entity';
+import { StockExitItem } from './sales/entities/stock-exit-item.entity';
+
+
 @Module({
   imports: [
     // ConfigModule loads .env and makes values available everywhere via ConfigService
@@ -34,7 +45,25 @@ import { ClientsModule } from './clients/clients.module';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [User, RefreshToken, PasswordResetToken, Tenant, Business, BusinessSettings, TaxRate, Client],
+
+        entities: [
+          User,
+          RefreshToken,
+          PasswordResetToken,
+          Tenant,
+          Business,
+          BusinessSettings,
+          TaxRate,
+          Client,
+          Quote,
+          QuoteItem,
+          SalesOrder,
+          SalesOrderItem,
+          DeliveryNote,
+          DeliveryNoteItem,
+          StockExit,
+          StockExitItem,
+        ],
         synchronize: true,  // auto-creates/updates tables. SET TO FALSE in production.
         logging: true,      // logs every SQL query to console. Useful for debugging.
       }),
@@ -46,6 +75,10 @@ import { ClientsModule } from './clients/clients.module';
     TenantsModule,
     BusinessesModule,
     ClientsModule,
+
+    SalesModule,
+       
+     
   ],
 })
 export class AppModule {}
