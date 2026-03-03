@@ -6,4 +6,5 @@ export enum Role {
   ACCOUNTANT = 'ACCOUNTANT',
   TEAM_MEMBER = 'TEAM_MEMBER',
   CLIENT = 'CLIENT',
+  SUPPLIER = 'SUPPLIER', 
 }
