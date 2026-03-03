@@ -15,13 +15,6 @@ import { BusinessesModule } from './businesses/businesses.module';
 import { TaxRate } from './businesses/entities/tax-rate.entity';
 import { Client } from './clients/entities/client.entity';
 import { ClientsModule } from './clients/clients.module';
-import { InvoiceItem } from './invoices/entities/invoice-item.entity';
-import { Invoice } from './invoices/entities/invoice.entity';
-import { InvoicesModule } from './invoices/invoices.module';
-import { RecurringInvoice } from './invoices/entities/recurring-invoice.entity';
-import { ExpenseCategory } from './expenses/entities/expense-category.entity';
-import { Expense } from './expenses/entities/expense.entity';
-import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -41,8 +34,7 @@ import { ExpensesModule } from './expenses/expenses.module';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [User, RefreshToken, PasswordResetToken, Tenant, Business, BusinessSettings,TaxRate, Client, Invoice,
-  InvoiceItem,  RecurringInvoice, Expense, ExpenseCategory,],
+        entities: [User, RefreshToken, PasswordResetToken, Tenant, Business, BusinessSettings, TaxRate, Client],
         synchronize: true,  // auto-creates/updates tables. SET TO FALSE in production.
         logging: true,      // logs every SQL query to console. Useful for debugging.
       }),
@@ -52,12 +44,8 @@ import { ExpensesModule } from './expenses/expenses.module';
     UsersModule,
     AuthModule,
     TenantsModule,
-     BusinessesModule,
-       ClientsModule,
-       InvoicesModule,
-        ExpensesModule,
-       
-     
+    BusinessesModule,
+    ClientsModule,
   ],
 })
 export class AppModule {}
