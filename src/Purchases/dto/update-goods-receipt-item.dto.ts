@@ -1,3 +1,4 @@
+
 import { IsUUID, IsInt } from 'class-validator';
 
 export class UpdateGoodsReceiptItemDto {

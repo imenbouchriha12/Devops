@@ -1,3 +1,4 @@
+
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { GoodsReceipt } from './goods-receipt.entity';
 import { SupplierPOItem } from 'src/supplier-po/entities/supplier-po-item.entity';

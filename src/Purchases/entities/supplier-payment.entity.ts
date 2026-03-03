@@ -1,3 +1,4 @@
+
 import { PurchaseInvoice } from 'src/purchase-invoice/entities/purchase-invoice.entity';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
 import { PaymentMethod } from '../enums/payment-method.enum';
