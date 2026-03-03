@@ -2,21 +2,35 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+
+// Core Modules
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module'
-import { User } from './users/entities/user.entity';
-import { RefreshToken } from './auth/entities/refresh-token.entity'
-import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
-import { Tenant } from './tenants/entities/tenant.entity';
+import { UsersModule } from './users/users.module';
 import { TenantsModule } from './tenants/tenants.module';
-import { BusinessSettings } from './businesses/entities/business-settings.entity';
-import { Business } from './businesses/entities/business.entity';
 import { BusinessesModule } from './businesses/businesses.module';
-import { TaxRate } from './businesses/entities/tax-rate.entity';
-import { Client } from './clients/entities/client.entity';
 import { ClientsModule } from './clients/clients.module';
 
+// Sales & Finance Modules
 import { SalesModule } from './sales/sales.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { PaymentsModule } from './payments/payments.module';
+import { SupplierPaymentsModule } from './supplier-payments/supplier-payments.module';
+import { TransactionsModule } from './transactions/transactions.module';
+
+// Stock Module
+import { StockModule } from './stock/stock.module';
+
+// Core Entities
+import { User } from './users/entities/user.entity';
+import { RefreshToken } from './auth/entities/refresh-token.entity';
+import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
+import { Tenant } from './tenants/entities/tenant.entity';
+import { Business } from './businesses/entities/business.entity';
+import { BusinessSettings } from './businesses/entities/business-settings.entity';
+import { TaxRate } from './businesses/entities/tax-rate.entity';
+import { Client } from './clients/entities/client.entity';
+
+// Sales Entities
 import { Quote } from './sales/entities/quote.entity';
 import { QuoteItem } from './sales/entities/quote-item.entity';
 import { SalesOrder } from './sales/entities/sales-order.entity';
@@ -25,36 +39,37 @@ import { DeliveryNote } from './sales/entities/delivery-note.entity';
 import { DeliveryNoteItem } from './sales/entities/delivery-note-item.entity';
 import { StockExit } from './sales/entities/stock-exit.entity';
 import { StockExitItem } from './sales/entities/stock-exit-item.entity';
-import { AccountsModule } from './accounts/accounts.module';
-import { PaymentsModule } from './payments/payments.module';
-import { Payment } from './payments/entities/payment.entity';
+
+// Finance Entities
 import { Account } from './accounts/entities/account.entity';
-import { SupplierPaymentsModule } from './supplier-payments/supplier-payments.module';
-import { TransactionsModule } from './transactions/transactions.module';
+import { Payment } from './payments/entities/payment.entity';
 import { SupplierPayment } from './supplier-payments/entities/supplier-payment.entity';
 import { Transaction } from './transactions/entities/transaction.entity';
 
+// Stock Entities (YOUR MODULE)
+import { Product } from './stock/entities/product.entity';
+import { ProductCategory } from './stock/entities/product-category.entity';
+import { StockMovement } from './stock/entities/stock-movement.entity';
 
 @Module({
   imports: [
-    // ConfigModule loads .env and makes values available everywhere via ConfigService
     ConfigModule.forRoot({
-      isGlobal: true,      // no need to import ConfigModule in every module
-      envFilePath: '.env', // path to your .env file
+      isGlobal: true,
+      envFilePath: '.env',
     }),
 
-    // TypeORM connects to PostgreSQL using values from .env
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DB_HOST'),
+        host: configService.get<string>('DB_HOST'),
         port: +(configService.get<number>('DB_PORT') ?? 5432),
-        username: configService.get('DB_USERNAME'),
-        password: configService.get('DB_PASSWORD'),
-        database: configService.get('DB_NAME'),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
 
         entities: [
+          // Core
           User,
           RefreshToken,
           PasswordResetToken,
@@ -63,6 +78,8 @@ import { Transaction } from './transactions/entities/transaction.entity';
           BusinessSettings,
           TaxRate,
           Client,
+
+          // Sales
           Quote,
           QuoteItem,
           SalesOrder,
@@ -71,30 +88,41 @@ import { Transaction } from './transactions/entities/transaction.entity';
           DeliveryNoteItem,
           StockExit,
           StockExitItem,
+
+          // Finance
           Account,
           Payment,
           SupplierPayment,
           Transaction,
+
+          // Stock (Merged cleanly)
+          Product,
+          ProductCategory,
+          StockMovement,
         ],
-        synchronize: true,  // auto-creates/updates tables. SET TO FALSE in production.
-        logging: true,      // logs every SQL query to console. Useful for debugging.
+
+        synchronize: true, // ⚠️ set false in production
+        logging: true,
       }),
       inject: [ConfigService],
     }),
 
+    // Core Modules
     UsersModule,
     AuthModule,
     TenantsModule,
     BusinessesModule,
     ClientsModule,
 
+    // Sales & Finance
     SalesModule,
     AccountsModule,
     PaymentsModule,
     SupplierPaymentsModule,
     TransactionsModule,
 
-
+    // Stock (Merged safely)
+    StockModule,
   ],
 })
 export class AppModule {}
