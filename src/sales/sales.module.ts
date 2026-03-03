@@ -1,3 +1,4 @@
+
 // src/sales/sales.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';

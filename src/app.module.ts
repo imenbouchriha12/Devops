@@ -15,6 +15,7 @@ import { BusinessesModule } from './businesses/businesses.module';
 import { TaxRate } from './businesses/entities/tax-rate.entity';
 import { Client } from './clients/entities/client.entity';
 import { ClientsModule } from './clients/clients.module';
+
 import { SalesModule } from './sales/sales.module';
 import { Quote } from './sales/entities/quote.entity';
 import { QuoteItem } from './sales/entities/quote-item.entity';
@@ -32,6 +33,7 @@ import { SupplierPaymentsModule } from './supplier-payments/supplier-payments.mo
 import { TransactionsModule } from './transactions/transactions.module';
 import { SupplierPayment } from './supplier-payments/entities/supplier-payment.entity';
 import { Transaction } from './transactions/entities/transaction.entity';
+
 
 @Module({
   imports: [
@@ -51,6 +53,7 @@ import { Transaction } from './transactions/entities/transaction.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
+
         entities: [
           User,
           RefreshToken,
@@ -84,6 +87,7 @@ import { Transaction } from './transactions/entities/transaction.entity';
     TenantsModule,
     BusinessesModule,
     ClientsModule,
+
     SalesModule,
     AccountsModule,
     PaymentsModule,
