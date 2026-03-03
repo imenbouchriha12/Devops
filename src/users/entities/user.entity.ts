@@ -42,6 +42,8 @@ export class User {
   @Column({ default: false })
   is_suspended: boolean; 
 
+
+  ///HELLLOO NARIII
   @UpdateDateColumn()
   updated_at!: Date;
   
