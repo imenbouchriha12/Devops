@@ -7,8 +7,10 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { Supplier } from 'src/suppliers/entities/supplier.entity';
 
 @Entity('businesses')
 export class Business {
@@ -41,6 +43,10 @@ export class Business {
 
   @Column({ type: 'json', nullable: true })
   address: object; // { street, city, postal_code, country }
+
+  // ← Ajouter la relation inverse
+  @OneToMany(() => Supplier, (supplier) => supplier.business)
+  suppliers: Supplier[];
 
   @CreateDateColumn()
   created_at: Date;
