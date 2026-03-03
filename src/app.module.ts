@@ -15,13 +15,14 @@ import { BusinessesModule } from './businesses/businesses.module';
 import { TaxRate } from './businesses/entities/tax-rate.entity';
 import { Client } from './clients/entities/client.entity';
 import { ClientsModule } from './clients/clients.module';
-import { InvoiceItem } from './invoices/entities/invoice-item.entity';
-import { Invoice } from './invoices/entities/invoice.entity';
-import { InvoicesModule } from './invoices/invoices.module';
-import { RecurringInvoice } from './invoices/entities/recurring-invoice.entity';
-import { ExpenseCategory } from './expenses/entities/expense-category.entity';
-import { Expense } from './expenses/entities/expense.entity';
-import { ExpensesModule } from './expenses/expenses.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { PaymentsModule } from './payments/payments.module';
+import { Payment } from './payments/entities/payment.entity';
+import { Account } from './accounts/entities/account.entity';
+import { SupplierPaymentsModule } from './supplier-payments/supplier-payments.module';
+import { TransactionsModule } from './transactions/transactions.module';
+import { SupplierPayment } from './supplier-payments/entities/supplier-payment.entity';
+import { Transaction } from './transactions/entities/transaction.entity';
 
 @Module({
   imports: [
@@ -41,8 +42,7 @@ import { ExpensesModule } from './expenses/expenses.module';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [User, RefreshToken, PasswordResetToken, Tenant, Business, BusinessSettings,TaxRate, Client, Invoice,
-  InvoiceItem,  RecurringInvoice, Expense, ExpenseCategory,],
+        entities: [User, RefreshToken, PasswordResetToken, Tenant, Business, BusinessSettings,TaxRate, Client, Payment,Account, SupplierPayment, Transaction,],
         synchronize: true,  // auto-creates/updates tables. SET TO FALSE in production.
         logging: true,      // logs every SQL query to console. Useful for debugging.
       }),
@@ -54,10 +54,12 @@ import { ExpensesModule } from './expenses/expenses.module';
     TenantsModule,
      BusinessesModule,
        ClientsModule,
-       InvoicesModule,
-        ExpensesModule,
-       
-     
+        AccountsModule,
+        PaymentsModule,
+        SupplierPaymentsModule,
+        TransactionsModule,
+
+
   ],
 })
 export class AppModule {}
