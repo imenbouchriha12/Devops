@@ -37,7 +37,7 @@ import { DeliveryNoteItem } from './sales/entities/delivery-note-item.entity';
 import { StockExit } from './sales/entities/stock-exit.entity';
 import { StockExitItem } from './sales/entities/stock-exit-item.entity';
 
-import { ClientsModule } from './clients/clients.module';
+
 
 
 
@@ -51,6 +51,7 @@ import { Transaction } from './transactions/entities/transaction.entity';
 import { Product } from './stock/entities/product.entity';
 import { ProductCategory } from './stock/entities/product-category.entity';
 import { StockMovement } from './stock/entities/stock-movement.entity';
+import { Supplier } from './Purchases/entities/supplier.entity';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { StockMovement } from './stock/entities/stock-movement.entity';
           Account,
           Payment,
           SupplierPayment,
+          Supplier,
           Transaction,
 
           // Stock (Merged cleanly)
@@ -102,15 +104,7 @@ import { StockMovement } from './stock/entities/stock-movement.entity';
           StockMovement,
         ],
 
-        synchronize: true, // ⚠️ set false in production
-        logging: true,
-
-        username: configService.get('DB_USERNAME'),
-        password: configService.get('DB_PASSWORD'),
-        database: configService.get('DB_NAME'),
-        entities: [User, RefreshToken, PasswordResetToken, Tenant, Business, BusinessSettings, TaxRate, Client],
-        synchronize: true,  // auto-creates/updates tables. SET TO FALSE in production.
-        logging: true,      // logs every SQL query to console. Useful for debugging.
+      
 
       }),
       inject: [ConfigService],

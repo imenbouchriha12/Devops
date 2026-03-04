@@ -10,7 +10,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { Supplier } from 'src/suppliers/entities/supplier.entity';
+import { Supplier } from 'src/Purchases/entities/supplier.entity';
 
 @Entity('businesses')
 export class Business {

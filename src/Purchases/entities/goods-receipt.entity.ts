@@ -2,7 +2,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 import { User } from 'src/users/entities/user.entity';
-import { SupplierPO } from 'src/supplier-po/entities/supplier-po.entity';
+import { SupplierPO } from './supplier-po.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
 
 
