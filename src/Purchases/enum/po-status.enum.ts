@@ -1,0 +1,6 @@
+export enum POStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  DRAFT= 'DRAFT',
+}

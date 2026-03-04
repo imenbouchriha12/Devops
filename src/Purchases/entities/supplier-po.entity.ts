@@ -1,10 +1,12 @@
 
-import { Supplier } from 'src/suppliers/entities/supplier.entity';
+
+import { Supplier } from '../entities/supplier.entity';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { SupplierPOItem } from './supplier-po-item.entity';
-import { GoodsReceipt } from 'src/goods-receipt/entities/goods-receipt.entity';
-import { PurchaseInvoice } from 'src/purchase-invoice/entities/purchase-invoice.entity';
-import { POStatus } from '../enums/po-status.enum';
+import { GoodsReceipt } from './goods-receipt.entity';
+import { PurchaseInvoice } from './purchase-invoice.entity';
+import { POStatus } from '../enum/po-status.enum';
+
 
 
 @Entity('supplier_pos')
