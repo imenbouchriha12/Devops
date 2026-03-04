@@ -1,8 +1,8 @@
 
-import { SupplierPO } from 'src/supplier-po/entities/supplier-po.entity';
-import { Supplier } from 'src/suppliers/entities/supplier.entity';
+import { SupplierPO } from './supplier-po.entity';
+import { Supplier } from './supplier.entity';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { InvoiceStatus } from '../enums/invoice-status.enum';
+import { InvoiceStatus } from '../enum/invoice-status.enum';
 import { PurchaseInvoiceItem } from './purchase-invoice-item.entity';
 
 

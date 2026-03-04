@@ -1,6 +1,6 @@
 
 import { IsUUID, IsDateString, IsDecimal, IsEnum, IsOptional } from 'class-validator';
-import { PaymentMethod } from '../enums/payment-method.enum';
+import { PaymentMethod } from '../enum/payment-method.enum';
 
 export class CreateSupplierPaymentDto {
   @IsUUID()
