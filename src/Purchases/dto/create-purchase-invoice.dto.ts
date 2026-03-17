@@ -1,47 +1,64 @@
-
-import { IsUUID, IsDateString, IsOptional, IsDecimal, IsString } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsNumber,
+  IsPositive,
+  IsInt,
+  IsDateString,
+  Min,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreatePurchaseInvoiceDto {
-  @IsUUID()
-  business_id: string;
+
+  // Numéro imprimé sur la facture papier (celui du fournisseur, pas le nôtre)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  invoice_number_supplier: string;
 
   @IsUUID()
   supplier_id: string;
 
+  // Lien optionnel vers le bon de commande d'origine
   @IsOptional()
   @IsUUID()
   supplier_po_id?: string;
 
-  @IsString()
-  invoice_number_supplier: string;
-
   @IsDateString()
-  invoice_date: Date;
+  invoice_date: string;
 
+  // Si non fourni : calculée automatiquement = invoice_date + supplier.payment_terms jours
+  @IsOptional()
   @IsDateString()
-  due_date: Date;
+  due_date?: string;
 
-  @IsOptional()
-  @IsString()
-  notes?: string;
+  @IsNumber()
+  @Min(0)
+  subtotal_ht: number;
 
-  @IsOptional()
-  @IsDecimal()
-  subtotal_ht?: number;
+  @IsNumber()
+  @Min(0)
+  tax_amount: number;
 
+  // Si non fourni : 1.000 DT par défaut (obligatoire en Tunisie)
   @IsOptional()
-  @IsDecimal()
-  tax_amount?: number;
+  @IsNumber()
+  @Min(0)
+  timbre_fiscal?: number;
 
+  // Si fourni, le serveur vérifie la cohérence avec subtotal_ht + tax_amount + timbre
   @IsOptional()
-  @IsDecimal()
+  @IsNumber()
+  @Min(0)
   net_amount?: number;
 
-  @IsOptional()
-  @IsDecimal()
-  paid_amount?: number;
-
+  // URL du scan ou photo de la facture papier uploadée
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   receipt_url?: string;
 }
+

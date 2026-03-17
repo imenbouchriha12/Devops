@@ -44,10 +44,7 @@ export class Business {
   @Column({ type: 'json', nullable: true })
   address: object; // { street, city, postal_code, country }
 
-  // ← Ajouter la relation inverse
-  @OneToMany(() => Supplier, (supplier) => supplier.business)
-  suppliers: Supplier[];
-
+  
   @CreateDateColumn()
   created_at: Date;
 

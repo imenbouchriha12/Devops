@@ -1,47 +1,11 @@
+// ── Update ──────────────────────────────────────────────────────
+// Seulement possible si status = PENDING
 
-import { IsUUID, IsDateString, IsOptional, IsDecimal, IsString } from 'class-validator';
+import { OmitType, PartialType } from "@nestjs/mapped-types";
+import { CreatePurchaseInvoiceDto } from "./create-purchase-invoice.dto";
 
-export class UpdatePurchaseInvoiceDto {
-  @IsUUID()
-  business_id: string;
-
-  @IsUUID()
-  supplier_id: string;
-
-  @IsOptional()
-  @IsUUID()
-  supplier_po_id?: string;
-
-  @IsString()
-  invoice_number_supplier: string;
-
-  @IsDateString()
-  invoice_date: Date;
-
-  @IsDateString()
-  due_date: Date;
-
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @IsOptional()
-  @IsDecimal()
-  subtotal_ht?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  tax_amount?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  net_amount?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  paid_amount?: number;
-
-  @IsOptional()
-  @IsString()
-  receipt_url?: string;
-}
+// OmitType supprime supplier_id : on ne peut pas changer le fournisseur d'une facture
+export class UpdatePurchaseInvoiceDto extends PartialType(
+  OmitType(CreatePurchaseInvoiceDto, ['supplier_id', 'supplier_po_id'] as const)
+) {}
+ 
