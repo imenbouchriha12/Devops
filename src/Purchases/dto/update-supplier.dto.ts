@@ -1,56 +1,11 @@
-
-import {
-  IsString,
-  IsOptional,
-  IsEmail,
-  IsBoolean,
-  IsUUID,
-  Length,
-} from 'class-validator';
-
-export class UpdateSupplierDto {
-  @IsOptional()
-  @IsString()
-  @Length(2, 100)
-  name?: string;
-
-  @IsOptional()
-  @IsString()
-  taxNumber?: string;
-
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @IsOptional()
-  @IsString()
-  address?: string;
-
-  @IsOptional()
-  @IsString()
-  bankAccount?: string;
-
-  @IsOptional()
-  @IsString()
-  bankName?: string;
-
-  @IsOptional()
-  @IsString()
-  paymentTerms?: string;
-
+import { IsBoolean, IsOptional } from "class-validator";
+import { CreateSupplierDto } from "./create-supplier.dto";
+import { PartialType } from '@nestjs/mapped-types';
+export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {
+ 
+  // Champ supplémentaire uniquement disponible à la mise à jour
+  // Permet de réactiver un fournisseur archivé via PATCH
   @IsOptional()
   @IsBoolean()
-  isActive?: boolean;
-
-  @IsOptional()
-  @IsUUID()
-  businessId?: string;
-
-  @IsOptional()
-  @IsUUID()
-  userId?: string;
+  is_active?: boolean;
 }

@@ -1,30 +1,23 @@
-
-import { IsUUID, IsDateString, IsOptional, IsDecimal, IsString } from 'class-validator';
+import { Type } from "class-transformer";
+import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, MaxLength, ValidateNested } from "class-validator";
+import { CreateSupplierPOItemDto } from "./create-supplier-po-item.dto";
 
 export class UpdateSupplierPODto {
-  @IsUUID()
-  business_id: string;
-
-  @IsUUID()
-  supplier_id: string;
-
+ 
   @IsOptional()
   @IsDateString()
-  expected_delivery?: Date;
-
+  expected_delivery?: string;
+ 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   notes?: string;
-
+ 
+  // Si fourni, remplace TOUTES les lignes existantes
   @IsOptional()
-  @IsDecimal()
-  subtotal_ht?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  tax_amount?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  net_amount?: number;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateSupplierPOItemDto)
+  items?: CreateSupplierPOItemDto[];
 }
