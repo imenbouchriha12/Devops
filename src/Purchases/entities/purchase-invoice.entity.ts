@@ -1,64 +1,104 @@
-
-import { SupplierPO } from './supplier-po.entity';
-import { Supplier } from './supplier.entity';
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+import { Supplier }    from './supplier.entity';
+import { SupplierPO }  from './supplier-po.entity';
 import { InvoiceStatus } from '../enum/invoice-status.enum';
-import { PurchaseInvoiceItem } from './purchase-invoice-item.entity';
+
 
 
 @Entity('purchase_invoices')
+@Index(['business_id', 'status'])
+@Index(['business_id', 'supplier_id'])
+@Index(['business_id', 'due_date'])
 export class PurchaseInvoice {
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  business_id: string;
-
-  @Column()
+  // Numéro imprimé sur la facture PAPIER reçue du fournisseur
+  // Ce n'est PAS un numéro généré par nous
+  @Column({ type: 'varchar', length: 100 })
   invoice_number_supplier: string;
 
-  @ManyToOne(() => Supplier)
-  supplier: Supplier;
+  @Column({
+    type: 'enum',
+    enum: InvoiceStatus,
+    default: InvoiceStatus.PENDING,
+  })
+  status: InvoiceStatus;
 
-  @ManyToOne(() => SupplierPO, { nullable: true })
-  supplier_po: SupplierPO;
+  @Column({ type: 'uuid' })
+  @Index()
+  business_id: string;
 
+  @Column({ type: 'uuid' })
+  supplier_id: string;
+
+  // Lien optionnel vers le BC d'origine
+  @Column({ type: 'uuid', nullable: true })
+  supplier_po_id: string | null;
+
+  // Date figurant sur la facture reçue
   @Column({ type: 'date' })
   invoice_date: Date;
 
+  // Calculée : invoice_date + supplier.payment_terms jours
   @Column({ type: 'date' })
   due_date: Date;
 
-  @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.PENDING })
-  status: InvoiceStatus;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  // ── Montants saisis depuis la facture papier reçue ───────────
+  @Column({ type: 'decimal', precision: 15, scale: 3 })
   subtotal_ht: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 3 })
   tax_amount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 1000 })
+  @Column({ type: 'decimal', precision: 15, scale: 3, default: 1.000 })
   timbre_fiscal: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  // NET À PAYER = subtotal_ht + tax_amount + timbre_fiscal
+  @Column({ type: 'decimal', precision: 15, scale: 3 })
   net_amount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  // Mis à jour par le Module 5 (Trésorerie) à chaque SupplierPayment
+  @Column({ type: 'decimal', precision: 15, scale: 3, default: 0 })
   paid_amount: number;
 
-  @Column({ nullable: true })
-  receipt_url: string;
+  // URL du scan ou photo de la facture papier
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  receipt_url: string | null;
 
+  // Rempli si status = DISPUTED
   @Column({ type: 'text', nullable: true })
-  notes: string;
+  dispute_reason: string | null;
 
-  @OneToMany(() => PurchaseInvoiceItem, (item) => item.purchase_invoice, { cascade: true })
-  items: PurchaseInvoiceItem[];
-
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  // ── Relations ────────────────────────────────────────────────
+  // eager:true = le fournisseur chargé automatiquement
+  @ManyToOne(() => Supplier, (s) => s.purchase_invoices, { eager: true })
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: Supplier;
+
+  // eager:false = chargé uniquement quand on demande la relation explicitement
+  @ManyToOne(() => SupplierPO, { nullable: true, eager: false })
+  @JoinColumn({ name: 'supplier_po_id' })
+  supplier_po: SupplierPO | null;
+
+  // ── Propriétés calculées (non stockées en DB) ────────────────
+  get remaining_amount(): number {
+    return Math.round((Number(this.net_amount) - Number(this.paid_amount)) * 1000) / 1000;
+  }
 }

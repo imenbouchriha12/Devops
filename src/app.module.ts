@@ -51,7 +51,14 @@ import { Transaction } from './transactions/entities/transaction.entity';
 import { Product } from './stock/entities/product.entity';
 import { ProductCategory } from './stock/entities/product-category.entity';
 import { StockMovement } from './stock/entities/stock-movement.entity';
+// Purchases
 import { Supplier } from './Purchases/entities/supplier.entity';
+import { SupplierPO } from './Purchases/entities/supplier-po.entity';
+import { SupplierPOItem } from './Purchases/entities/supplier-po-item.entity';
+import { PurchaseInvoice } from './Purchases/entities/purchase-invoice.entity';
+import { GoodsReceipt } from './Purchases/entities/goods-receipt.entity';
+import { GoodsReceiptItem } from './Purchases/entities/goods-receipt-item.entity';
+import { PurchasesModule } from './Purchases/purchases.module';
 
 @Module({
   imports: [
@@ -69,6 +76,7 @@ import { Supplier } from './Purchases/entities/supplier.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
+         synchronize: true,  // ← AJOUT : manquait complètement
 
         entities: [
           // Core
@@ -81,6 +89,13 @@ import { Supplier } from './Purchases/entities/supplier.entity';
           TaxRate,
           Client,
 
+          //purchase
+          Supplier,
+          SupplierPO,
+          SupplierPOItem,
+          PurchaseInvoice,
+          GoodsReceipt,
+          GoodsReceiptItem,
           // Sales
           Quote,
           QuoteItem,
@@ -95,7 +110,6 @@ import { Supplier } from './Purchases/entities/supplier.entity';
           Account,
           Payment,
           SupplierPayment,
-          Supplier,
           Transaction,
 
           // Stock (Merged cleanly)
@@ -124,6 +138,9 @@ import { Supplier } from './Purchases/entities/supplier.entity';
     PaymentsModule,
     SupplierPaymentsModule,
     TransactionsModule,
+
+    //purchase
+     PurchasesModule,
 
     // Stock (Merged safely)
     StockModule,
