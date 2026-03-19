@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { Business } from '../../businesses/entities/business.entity';
@@ -32,16 +33,19 @@ export class Client {
   phone: string;
 
   @Column({ type: 'json', nullable: true })
-  address: object; // { street, city, postal_code, country }
+  address: object;
 
   @Column({ type: 'int', nullable: true })
-  payment_terms: number; // Payment terms in days (e.g., 30)
+  payment_terms: number;
 
   @Column({ type: 'json', nullable: true })
-  billing_details: object; // { tax_id, bank_account, etc. }
+  billing_details: object;
 
   @Column({ type: 'json', nullable: true })
-  communication_history: object; // Array of communication logs
+  communication_history: object;
+
+  @Column({ type: 'boolean', default: false })
+  has_portal_access: boolean;
 
   @CreateDateColumn()
   created_at: Date;

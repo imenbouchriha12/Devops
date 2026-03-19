@@ -8,7 +8,6 @@ import {
 } from 'typeorm';
 import { GoodsReceipt }  from './goods-receipt.entity';
 import { SupplierPOItem } from './supplier-po-item.entity';
-import { Product } from '../../stock/entities/product.entity';
 
 @Entity('goods_receipt_items')
 @Index(['gr_id'])
@@ -46,11 +45,4 @@ export class GoodsReceiptItem {
   @ManyToOne(() => SupplierPOItem)
   @JoinColumn({ name: 'supplier_po_item_id' })
   supplier_po_item: SupplierPOItem;
-
-  @ManyToOne(() => Product, (product) => product.goodsReceiptItems, {
-    nullable: true,
-    onDelete: 'SET NULL',
-  })
-  @JoinColumn({ name: 'product_id' })
-  product: Product;
 }

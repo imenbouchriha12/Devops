@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import { SupplierPO }      from './supplier-po.entity';
 import { PurchaseInvoice } from './purchase-invoice.entity';
-import { Product } from '../../stock/entities/product.entity';
  
 @Entity('suppliers')
 @Index(['business_id', 'is_active'])
@@ -79,8 +78,4 @@ export class Supplier {
  
   @OneToMany(() => PurchaseInvoice, (inv) => inv.supplier)
   purchase_invoices: PurchaseInvoice[];
-
-  // Products that have this supplier as default
-  @OneToMany(() => Product, 'default_supplier_id')
-  products: Product[];
 }

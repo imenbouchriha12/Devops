@@ -36,6 +36,9 @@ import { DeliveryNote } from './sales/entities/delivery-note.entity';
 import { DeliveryNoteItem } from './sales/entities/delivery-note-item.entity';
 import { StockExit } from './sales/entities/stock-exit.entity';
 import { StockExitItem } from './sales/entities/stock-exit-item.entity';
+import { Invoice } from './sales/entities/invoice.entity';
+import { InvoiceItem } from './sales/entities/invoice-item.entity';
+
 
 
 
@@ -105,6 +108,8 @@ import { PurchasesModule } from './Purchases/purchases.module';
           DeliveryNoteItem,
           StockExit,
           StockExitItem,
+          Invoice,
+          InvoiceItem,
 
           // Finance
           Account,

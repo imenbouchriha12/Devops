@@ -11,7 +11,6 @@ import { Product } from '../../stock/entities/product.entity';
 
 @Entity('supplier_po_items')
 @Index(['supplier_po_id'])
-@Index(['product_id'])
 export class SupplierPOItem {
 
   @PrimaryGeneratedColumn('uuid')
@@ -56,16 +55,9 @@ export class SupplierPOItem {
   @Column({ type: 'integer', default: 0 })
   sort_order: number;
 
-  // ── Relations ─────────────────────────────────────────────────
+  // ── Relation ─────────────────────────────────────────────────
   // onDelete CASCADE : si le BC est supprimé, ses lignes le sont aussi
   @ManyToOne(() => SupplierPO, (po) => po.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'supplier_po_id' })
   supplier_po: SupplierPO;
-
-  @ManyToOne(() => Product, (product) => product.supplierPOItems, {
-    nullable: true,
-    onDelete: 'SET NULL',
-  })
-  @JoinColumn({ name: 'product_id' })
-  product: Product;
 }
