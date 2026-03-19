@@ -7,6 +7,7 @@ import {
   Index,
 } from 'typeorm';
 import { SupplierPO } from './supplier-po.entity';
+import { Product } from '../../stock/entities/product.entity';
 
 @Entity('supplier_po_items')
 @Index(['supplier_po_id'])
