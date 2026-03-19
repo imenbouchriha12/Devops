@@ -1,20 +1,31 @@
-
-import { IsUUID, IsDateString, IsOptional, IsString } from 'class-validator';
-
+import {
+  IsUUID,
+  IsOptional,
+  IsString,
+  IsNumber,
+  IsPositive,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateGoodsReceiptItemDto } from './create-goods-receipt-item.dto';
+ 
 export class CreateGoodsReceiptDto {
-  @IsUUID()
-  business_id: string;
-
-  @IsUUID()
-  supplier_po_id: string;
-
+ 
+  // Si non fourni, la date du jour sera utilisée
+  @IsOptional()
   @IsDateString()
-  receipt_date: Date;
-
-  @IsUUID()
-  received_by: string;
-
+  receipt_date?: string;
+ 
   @IsOptional()
   @IsString()
   notes?: string;
-  }
+ 
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Au moins une ligne de réception est requise.' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateGoodsReceiptItemDto)
+  items: CreateGoodsReceiptItemDto[];
+}
