@@ -43,6 +43,7 @@ import { InvoiceItem } from './sales/entities/invoice-item.entity';
 
 
 
+
 // Finance Entities
 import { Account } from './accounts/entities/account.entity';
 import { Payment } from './payments/entities/payment.entity';
