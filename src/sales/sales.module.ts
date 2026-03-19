@@ -10,6 +10,8 @@ import { DeliveryNote } from './entities/delivery-note.entity';
 import { DeliveryNoteItem } from './entities/delivery-note-item.entity';
 import { StockExit } from './entities/stock-exit.entity';
 import { StockExitItem } from './entities/stock-exit-item.entity';
+import { Invoice } from './entities/invoice.entity';
+import { InvoiceItem } from './entities/invoice-item.entity';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { StockExitItem } from './entities/stock-exit-item.entity';
       DeliveryNoteItem,
       StockExit,
       StockExitItem,
+      Invoice,
+      InvoiceItem,
     ]),
   ],
   providers: [],
