@@ -12,6 +12,7 @@ import {
 import { Supplier }        from './supplier.entity';
 import { SupplierPOItem }  from './supplier-po-item.entity';
 import { GoodsReceipt }    from './goods-receipt.entity';
+import { PurchaseInvoice } from './purchase-invoice.entity';
 import { POStatus } from '../enum/po-status.enum';
 
 @Entity('supplier_pos')
@@ -87,4 +88,8 @@ export class SupplierPO {
 
   @OneToMany(() => GoodsReceipt, (gr) => gr.supplier_po)
   goods_receipts: GoodsReceipt[];
+
+  // Reverse relation to PurchaseInvoices
+  @OneToMany(() => PurchaseInvoice, (invoice) => invoice.supplier_po)
+  purchase_invoices: PurchaseInvoice[];
 }

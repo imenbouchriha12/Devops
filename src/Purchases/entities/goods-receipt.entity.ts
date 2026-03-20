@@ -9,11 +9,13 @@ import {
   Index,
 } from 'typeorm';
 import { SupplierPO }       from './supplier-po.entity';
+import { Supplier }         from './supplier.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
 
 @Entity('goods_receipts')
 @Index(['business_id'])
 @Index(['supplier_po_id'])
+@Index(['supplier_id'])
 export class GoodsReceipt {
 
   @PrimaryGeneratedColumn('uuid')
@@ -28,6 +30,9 @@ export class GoodsReceipt {
 
   @Column({ type: 'uuid' })
   supplier_po_id: string;
+
+  @Column({ type: 'uuid' })
+  supplier_id: string;
 
   @Column({ type: 'date' })
   receipt_date: Date;
@@ -47,6 +52,11 @@ export class GoodsReceipt {
   @ManyToOne(() => SupplierPO, (po) => po.goods_receipts, { eager: true })
   @JoinColumn({ name: 'supplier_po_id' })
   supplier_po: SupplierPO;
+
+  // Direct relation to Supplier for easier queries
+  @ManyToOne(() => Supplier, (supplier) => supplier.goods_receipts)
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: Supplier;
 
   // cascade:true = les lignes créées/supprimées avec le bon de réception
   @OneToMany(() => GoodsReceiptItem, (item) => item.goods_receipt, { cascade: true })
