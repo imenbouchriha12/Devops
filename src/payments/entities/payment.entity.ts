@@ -4,10 +4,18 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
 import { PaymentMethod } from '../enums/payment-method.enum';
+import { Business } from '../../businesses/entities/business.entity';
+import { Account } from '../../accounts/entities/account.entity';
 
 @Entity('payments')
+@Index(['business_id', 'payment_date'])
+@Index(['invoice_id'])
+@Index(['account_id'])
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -15,11 +23,23 @@ export class Payment {
   @Column({ type: 'uuid' })
   business_id!: string;
 
+  @ManyToOne(() => Business)
+  @JoinColumn({ name: 'business_id' })
+  business!: Business;
+
   @Column({ type: 'uuid' })
   invoice_id!: string;
 
+  @ManyToOne('Invoice', 'payments')
+  @JoinColumn({ name: 'invoice_id' })
+  invoice!: any;
+
   @Column({ type: 'uuid' })
   account_id!: string;
+
+  @ManyToOne(() => Account, (account) => account.payments)
+  @JoinColumn({ name: 'account_id' })
+  account!: Account;
 
   @Column({ type: 'decimal', precision: 15, scale: 3 })
   amount!: number;

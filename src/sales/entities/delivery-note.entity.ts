@@ -1,10 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, JoinColumn, Index } from 'typeorm';
 import { Business } from '../../businesses/entities/business.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { DeliveryNoteItem } from './delivery-note-item.entity';
 import { SalesOrder } from './sales-order.entity';
 
+export enum DeliveryNoteStatus {
+  DRAFT = 'DRAFT',
+  DELIVERED = 'DELIVERED',
+  SIGNED = 'SIGNED'
+}
+
 @Entity('delivery_notes')
+@Index(['businessId', 'status'])
+@Index(['businessId', 'clientId'])
+@Index(['salesOrderId'])
 export class DeliveryNote {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -15,26 +24,36 @@ export class DeliveryNote {
   @Column({ type: 'date' })
   deliveryDate: Date;
 
-  @Column({ default: 'pending' })
-  status: string;
+  @Column({
+    type: 'enum',
+    enum: DeliveryNoteStatus,
+    default: DeliveryNoteStatus.DRAFT
+  })
+  status: DeliveryNoteStatus;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  deliveredBy: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string;
 
   @ManyToOne(() => Business, { nullable: false })
+  @JoinColumn({ name: 'businessId' })
   business: Business;
 
   @Column()
   businessId: string;
 
   @ManyToOne(() => Client, { nullable: false })
+  @JoinColumn({ name: 'clientId' })
   client: Client;
 
   @Column()
   clientId: string;
 
-  @ManyToOne(() => SalesOrder, so => so.deliveryNotes, { nullable: true })
-  salesOrder: SalesOrder;
+  @ManyToOne(() => SalesOrder, (order) => order.deliveryNotes, { nullable: true })
+  @JoinColumn({ name: 'salesOrderId' })
+  salesOrder: SalesOrder | null;
 
   @Column({ nullable: true })
   salesOrderId: string;
