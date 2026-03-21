@@ -11,6 +11,8 @@ import {
 } from 'typeorm';
 import { ProductCategory } from './product-category.entity';
 import { StockMovement } from './stock-movement.entity';
+import { SupplierPOItem } from 'src/Purchases/entities/supplier-po-item.entity';
+import { GoodsReceiptItem } from 'src/Purchases/entities/goods-receipt-item.entity';
 
 @Entity('products')
 @Index(['business_id', 'isActive'])
@@ -131,9 +133,9 @@ export class Product {
   stockExitItems: any[];
 
   // Purchase module relations
-  @OneToMany('SupplierPOItem', 'product')
-  supplierPOItems: any[];
+@OneToMany(() => SupplierPOItem, (item) => item.product)
+supplierPOItems: SupplierPOItem[];
 
-  @OneToMany('GoodsReceiptItem', 'product')
-  goodsReceiptItems: any[];
+@OneToMany(() => GoodsReceiptItem, (item) => item.product)
+goodsReceiptItems: GoodsReceiptItem[];
 }

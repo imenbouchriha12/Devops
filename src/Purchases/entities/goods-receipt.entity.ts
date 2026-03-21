@@ -8,12 +8,15 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { SupplierPO }       from './supplier-po.entity';
+import { Business }       from '../../businesses/entities/business.entity';
+import { User }           from '../../users/entities/user.entity';
+import { SupplierPO }     from './supplier-po.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
 
 @Entity('goods_receipts')
 @Index(['business_id'])
 @Index(['supplier_po_id'])
+@Index(['received_by'])
 export class GoodsReceipt {
 
   @PrimaryGeneratedColumn('uuid')
@@ -23,32 +26,48 @@ export class GoodsReceipt {
   @Column({ type: 'varchar', length: 50, unique: true })
   gr_number: string;
 
+  // ── Multitenant ───────────────────────────────────────────────
   @Column({ type: 'uuid' })
   business_id: string;
 
+  @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
+
+  // ── Bon de commande source ────────────────────────────────────
   @Column({ type: 'uuid' })
   supplier_po_id: string;
 
+  // eager:true = BC chargé auto (contient le fournisseur)
+  @ManyToOne(() => SupplierPO, (po) => po.goods_receipts, {
+    eager: true,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'supplier_po_id' })
+  supplier_po: SupplierPO;
+
+  // ── Réception ─────────────────────────────────────────────────
   @Column({ type: 'date' })
   receipt_date: Date;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  // ID de l'utilisateur qui a validé la réception
+  // ── Utilisateur qui a validé la réception ─────────────────────
+  // Lien vers User (même module Auth) — eager:false pour performance
   @Column({ type: 'uuid' })
   received_by: string;
+
+  @ManyToOne(() => User, { eager: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'received_by' })
+  receiver: User;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
-  // ── Relations ────────────────────────────────────────────────
-  // eager:true = le BC et son fournisseur chargés automatiquement
-  @ManyToOne(() => SupplierPO, (po) => po.goods_receipts, { eager: true })
-  @JoinColumn({ name: 'supplier_po_id' })
-  supplier_po: SupplierPO;
-
-  // cascade:true = les lignes créées/supprimées avec le bon de réception
-  @OneToMany(() => GoodsReceiptItem, (item) => item.goods_receipt, { cascade: true })
+  // ── Lignes de réception ───────────────────────────────────────
+  @OneToMany(() => GoodsReceiptItem, (item) => item.goods_receipt, {
+    cascade: true,
+  })
   items: GoodsReceiptItem[];
 }

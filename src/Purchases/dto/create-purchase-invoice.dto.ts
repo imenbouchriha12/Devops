@@ -10,10 +10,13 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
 
+// ── Création facture (saisie manuelle depuis la facture papier) ──
 export class CreatePurchaseInvoiceDto {
 
-  // Numéro imprimé sur la facture papier (celui du fournisseur, pas le nôtre)
+  // N° imprimé sur la facture papier du fournisseur
   @IsString()
   @MinLength(1)
   @MaxLength(100)
@@ -22,7 +25,7 @@ export class CreatePurchaseInvoiceDto {
   @IsUUID()
   supplier_id: string;
 
-  // Lien optionnel vers le bon de commande d'origine
+  // Lien optionnel vers le BC d'origine
   @IsOptional()
   @IsUUID()
   supplier_po_id?: string;
@@ -30,7 +33,7 @@ export class CreatePurchaseInvoiceDto {
   @IsDateString()
   invoice_date: string;
 
-  // Si non fourni : calculée automatiquement = invoice_date + supplier.payment_terms jours
+  // Si non fourni : calculée auto = invoice_date + supplier.payment_terms jours
   @IsOptional()
   @IsDateString()
   due_date?: string;
@@ -43,19 +46,19 @@ export class CreatePurchaseInvoiceDto {
   @Min(0)
   tax_amount: number;
 
-  // Si non fourni : 1.000 DT par défaut (obligatoire en Tunisie)
+  // Si non fourni : 1,000 DT par défaut (timbre fiscal tunisien)
   @IsOptional()
   @IsNumber()
   @Min(0)
   timbre_fiscal?: number;
 
-  // Si fourni, le serveur vérifie la cohérence avec subtotal_ht + tax_amount + timbre
+  // Si fourni, le serveur vérifie la cohérence avec les montants
   @IsOptional()
   @IsNumber()
   @Min(0)
   net_amount?: number;
 
-  // URL du scan ou photo de la facture papier uploadée
+  // URL du scan / photo de la facture papier
   @IsOptional()
   @IsString()
   @MaxLength(500)

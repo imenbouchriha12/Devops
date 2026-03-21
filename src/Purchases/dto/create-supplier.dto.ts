@@ -12,8 +12,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { PartialType } from '@nestjs/mapped-types';
  
-// ── Sous-DTO pour l'adresse ─────────────────────────────────────
 class AddressDto {
   @IsOptional() @IsString() @MaxLength(255) street?: string;
   @IsOptional() @IsString() @MaxLength(100) city?: string;
@@ -21,7 +21,7 @@ class AddressDto {
   @IsOptional() @IsString() @MaxLength(100) country?: string;
 }
  
-// ── Create ──────────────────────────────────────────────────────
+// ── CREATE ──────────────────────────────────────────────────────
 export class CreateSupplierDto {
  
   @IsString()
@@ -29,18 +29,13 @@ export class CreateSupplierDto {
   @MaxLength(255)
   name: string;
  
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
+  @IsOptional() @IsString() @MaxLength(50)
   matricule_fiscal?: string;
  
-  @IsOptional()
-  @IsEmail()
+  @IsOptional() @IsEmail()
   email?: string;
  
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
+  @IsOptional() @IsString() @MaxLength(30)
   phone?: string;
  
   @IsOptional()
@@ -49,28 +44,46 @@ export class CreateSupplierDto {
   @Type(() => AddressDto)
   address?: AddressDto;
  
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
+  @IsOptional() @IsString() @MaxLength(50)
   rib?: string;
  
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
+  @IsOptional() @IsString() @MaxLength(100)
   bank_name?: string;
  
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(365)
+  @IsOptional() @IsInt() @Min(0) @Max(365)
   payment_terms?: number;
+ 
+  @IsOptional() @IsString() @MaxLength(100)
+  category?: string;
+ 
+  @IsOptional() @IsString()
+  notes?: string;
+}
+export class QuerySuppliersDto {
  
   @IsOptional()
   @IsString()
-  @MaxLength(100)
+  search?: string;
+ 
+  @IsOptional()
+  @IsString()
   category?: string;
  
   @IsOptional()
-  @IsString()
-  notes?: string;
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  is_active?: boolean;
+ 
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+ 
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
 }
