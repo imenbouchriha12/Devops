@@ -11,7 +11,7 @@ import { PurchaseInvoice } from '../entities/purchase-invoice.entity';
 import { InvoiceStatus }   from '../enum/invoice-status.enum';
 import { SuppliersService } from './suppliers.service';
 import { CreatePurchaseInvoiceDto } from '../dto/create-purchase-invoice.dto';
-import { DisputePurchaseInvoiceDto, UpdatePaymentAmountDto, UpdatePurchaseInvoiceDto } from '../dto/update-purchase-invoice.dto';
+import { DisputeInvoiceDto, UpdatePaymentAmountDto, UpdatePurchaseInvoiceDto } from '../dto/update-purchase-invoice.dto';
 
 
 @Injectable()
@@ -155,7 +155,7 @@ export class PurchaseInvoicesService {
   // ─────────────────────────────────────────────────────────────
   // DISPUTE
   // ─────────────────────────────────────────────────────────────
-  async dispute(businessId: string, id: string, dto: DisputePurchaseInvoiceDto): Promise<PurchaseInvoice> {
+  async dispute(businessId: string, id: string, dto: DisputeInvoiceDto): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
 
     if (inv.status === InvoiceStatus.PAID) {

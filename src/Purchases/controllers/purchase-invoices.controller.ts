@@ -18,7 +18,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles }      from '../../auth/decorators/roles.decorators';
 import { Role }       from '../../users/enums/role.enum';
 import { CreatePurchaseInvoiceDto } from '../dto/create-purchase-invoice.dto';
-import { DisputePurchaseInvoiceDto, UpdatePaymentAmountDto, UpdatePurchaseInvoiceDto } from '../dto/update-purchase-invoice.dto';
+import { DisputeInvoiceDto, UpdatePaymentAmountDto, UpdatePurchaseInvoiceDto } from '../dto/update-purchase-invoice.dto';
 
 @Controller('businesses/:businessId/purchase-invoices')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -84,7 +84,7 @@ export class PurchaseInvoicesController {
   dispute(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: DisputePurchaseInvoiceDto,
+    @Body() dto: DisputeInvoiceDto,
   ) {
     return this.service.dispute(businessId, id, dto);
   }

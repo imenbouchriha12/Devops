@@ -1,41 +1,38 @@
 import {
-  IsString,
-  IsOptional,
-  IsEmail,
-  IsInt,
-  IsBoolean,
-  IsObject,
-  Min,
-  Max,
-  MaxLength,
-  MinLength,
-  ValidateNested,
+  IsString, IsEmail, IsOptional, IsNumber, IsBoolean,
+  IsNotEmpty, MinLength, MaxLength, Min, Max,
+  ValidateNested, IsObject, Matches,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { PartialType } from '@nestjs/mapped-types';
  
-class AddressDto {
-  @IsOptional() @IsString() @MaxLength(255) street?: string;
-  @IsOptional() @IsString() @MaxLength(100) city?: string;
-  @IsOptional() @IsString() @MaxLength(20)  postal_code?: string;
-  @IsOptional() @IsString() @MaxLength(100) country?: string;
+export class AddressDto {
+  @IsOptional() @IsString() street?: string;
+  @IsOptional() @IsString() city?: string;
+  @IsOptional() @IsString() postal_code?: string;
+  @IsOptional() @IsString() country?: string;
 }
  
-// ── CREATE ──────────────────────────────────────────────────────
 export class CreateSupplierDto {
- 
   @IsString()
-  @MinLength(2)
-  @MaxLength(255)
+  @IsNotEmpty({ message: 'Le nom du fournisseur est obligatoire' })
+  @MinLength(2, { message: 'Le nom doit contenir au moins 2 caractères' })
+  @MaxLength(200, { message: 'Le nom ne peut pas dépasser 200 caractères' })
   name: string;
  
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{7}[A-Z]\/[A-Z]\/[A-Z]\/[0-9]{3}$|^.{5,30}$/, {
+    message: 'Format matricule fiscal invalide',
+  })
   matricule_fiscal?: string;
  
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail({}, { message: 'Adresse email invalide' })
   email?: string;
  
-  @IsOptional() @IsString() @MaxLength(30)
+  @IsOptional()
+  @IsString()
+  @Matches(/^[+]?[\d\s\-().]{8,20}$/, { message: 'Numéro de téléphone invalide' })
   phone?: string;
  
   @IsOptional()
@@ -44,46 +41,29 @@ export class CreateSupplierDto {
   @Type(() => AddressDto)
   address?: AddressDto;
  
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional()
+  @IsString()
   rib?: string;
  
-  @IsOptional() @IsString() @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   bank_name?: string;
  
-  @IsOptional() @IsInt() @Min(0) @Max(365)
+  @IsOptional()
+  @IsNumber({}, { message: 'Le délai de paiement doit être un nombre' })
+  @Min(0, { message: 'Le délai de paiement ne peut pas être négatif' })
+  @Max(365, { message: 'Le délai de paiement ne peut pas dépasser 365 jours' })
   payment_terms?: number;
  
-  @IsOptional() @IsString() @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   category?: string;
  
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
   notes?: string;
 }
-export class QuerySuppliersDto {
  
-  @IsOptional()
-  @IsString()
-  search?: string;
- 
-  @IsOptional()
-  @IsString()
-  category?: string;
- 
-  @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  @IsBoolean()
-  is_active?: boolean;
- 
-  @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
- 
-  @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number = 20;
-}
