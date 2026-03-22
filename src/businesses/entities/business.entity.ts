@@ -7,10 +7,8 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
-  OneToMany,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { Supplier } from 'src/Purchases/entities/supplier.entity';
 
 @Entity('businesses')
 export class Business {
@@ -30,21 +28,26 @@ export class Business {
   @Column({ nullable: true })
   logo: string;
 
-  // Matricule Fiscal (Tunisian Tax ID)
-  // Format: NNNNNNN/X/A/E/NNN (7-20 chars)
+  // Matricule Fiscal tunisien
   @Column({ nullable: true })
   tax_id: string;
 
+  // FIX : champs ajoutés pour le portail fournisseur et les emails
+  @Column({ nullable: true })
+  email: string;
+
+  @Column({ nullable: true })
+  phone: string;
+
   @Column({ default: 'TND' })
-  currency: string; // Default to Tunisian Dinar
+  currency: string;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-  tax_rate: number; // TVA rate (e.g., 19.00 for 19%)
+  tax_rate: number;
 
   @Column({ type: 'json', nullable: true })
-  address: object; // { street, city, postal_code, country }
+  address: object;
 
-  
   @CreateDateColumn()
   created_at: Date;
 
