@@ -8,15 +8,14 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { Business }       from '../../businesses/entities/business.entity';
-import { User }           from '../../users/entities/user.entity';
-import { SupplierPO }     from './supplier-po.entity';
+import { SupplierPO }       from './supplier-po.entity';
+import { Supplier }         from './supplier.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
 
 @Entity('goods_receipts')
 @Index(['business_id'])
 @Index(['supplier_po_id'])
-@Index(['received_by'])
+@Index(['supplier_id'])
 export class GoodsReceipt {
 
   @PrimaryGeneratedColumn('uuid')
@@ -38,15 +37,9 @@ export class GoodsReceipt {
   @Column({ type: 'uuid' })
   supplier_po_id: string;
 
-  // eager:true = BC chargé auto (contient le fournisseur)
-  @ManyToOne(() => SupplierPO, (po) => po.goods_receipts, {
-    eager: true,
-    onDelete: 'RESTRICT',
-  })
-  @JoinColumn({ name: 'supplier_po_id' })
-  supplier_po: SupplierPO;
+  @Column({ type: 'uuid' })
+  supplier_id: string;
 
-  // ── Réception ─────────────────────────────────────────────────
   @Column({ type: 'date' })
   receipt_date: Date;
 
@@ -65,9 +58,18 @@ export class GoodsReceipt {
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
-  // ── Lignes de réception ───────────────────────────────────────
-  @OneToMany(() => GoodsReceiptItem, (item) => item.goods_receipt, {
-    cascade: true,
-  })
+  // ── Relations ────────────────────────────────────────────────
+  // eager:true = le BC et son fournisseur chargés automatiquement
+  @ManyToOne(() => SupplierPO, (po) => po.goods_receipts, { eager: true })
+  @JoinColumn({ name: 'supplier_po_id' })
+  supplier_po: SupplierPO;
+
+  // Direct relation to Supplier for easier queries
+  @ManyToOne(() => Supplier, (supplier) => supplier.goods_receipts)
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: Supplier;
+
+  // cascade:true = les lignes créées/supprimées avec le bon de réception
+  @OneToMany(() => GoodsReceiptItem, (item) => item.goods_receipt, { cascade: true })
   items: GoodsReceiptItem[];
 }
