@@ -17,6 +17,10 @@ import { PurchaseInvoicesService } from './services/purchase-invoices.service';
 import { GoodsReceiptsController } from './controllers/goods-receipts.controller';
 import { PurchaseInvoicesController } from './controllers/purchase-invoices.controller';
 import { HttpModule } from '@nestjs/axios';
+import { PurchaseMailService } from './services/purchase-mail.service';
+import { SupplierPaymentsService } from './services/supplier-payments.service';
+import { SupplierPayment } from './entities/supplier-payment.entity';
+//hedi s7i7a
 
 @Module({
     imports: [
@@ -26,14 +30,15 @@ import { HttpModule } from '@nestjs/axios';
         PurchaseInvoice,
         SupplierPOItem,
         SupplierPO,
-        Supplier
+        Supplier,
+        SupplierPayment
 
       ]),
         HttpModule,   
 
     ],
   controllers: [PurchasesController, SuppliersController, SupplierPOsController, GoodsReceiptsController, PurchaseInvoicesController],
-  providers: [PurchasesService, SuppliersService, SupplierPOsService, GoodsReceiptsService, PurchaseInvoicesService],
-  exports: [PurchasesService],
+  providers: [PurchasesService, SuppliersService, SupplierPOsService, GoodsReceiptsService, PurchaseInvoicesService,PurchaseMailService, SupplierPaymentsService],
+  exports: [PurchasesService, PurchaseInvoicesService],
 })
 export class PurchasesModule {}

@@ -13,7 +13,6 @@ import { ClientsModule } from './clients/clients.module';
 import { SalesModule } from './sales/sales.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { PaymentsModule } from './payments/payments.module';
-import { SupplierPaymentsModule } from './supplier-payments/supplier-payments.module';
 import { TransactionsModule } from './transactions/transactions.module';
 
 // Stock Module
@@ -47,7 +46,6 @@ import { InvoiceItem } from './sales/entities/invoice-item.entity';
 // Finance Entities
 import { Account } from './accounts/entities/account.entity';
 import { Payment } from './payments/entities/payment.entity';
-import { SupplierPayment } from './supplier-payments/entities/supplier-payment.entity';
 import { Transaction } from './transactions/entities/transaction.entity';
 
 // Stock Entities (YOUR MODULE)
@@ -116,7 +114,6 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
           // Finance
           Account,
           Payment,
-          SupplierPayment,
           Transaction,
 
           // Stock (Merged cleanly)
@@ -143,7 +140,6 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
     SalesModule,
     AccountsModule,
     PaymentsModule,
-    SupplierPaymentsModule,
     TransactionsModule,
 
     //purchase
@@ -154,5 +150,6 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
 
   ],
   controllers: [],
+  providers: [],
 })
 export class AppModule {}

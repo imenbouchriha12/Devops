@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from "class-validator";
+import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from "class-validator";
 
 export class UpdatePurchaseInvoiceDto {
   @IsOptional() @IsString() @MaxLength(100) invoice_number_supplier?: string;
@@ -31,7 +31,8 @@ export class QueryPurchaseInvoicesDto {
   @IsOptional() @IsString() due_before?: string;
   @IsOptional() @IsString() date_from?: string;
   @IsOptional() @IsString() date_to?: string;
- 
+  @IsOptional() @IsString() sort_field?: string;
+  @IsOptional() @IsIn(['asc', 'desc']) sort_dir?: 'asc' | 'desc';
   @IsOptional()
   @Transform(({ value }) => parseInt(value) || 1)
   @IsNumber() @Min(1)

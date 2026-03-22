@@ -1,18 +1,33 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PurchaseInvoice } from '../entities/purchase-invoice.entity';
-import { InvoiceStatus }   from '../enum/invoice-status.enum';
-import { SuppliersService } from './suppliers.service';
-import { CreatePurchaseInvoiceDto } from '../dto/create-purchase-invoice.dto';
-import { DisputeInvoiceDto, UpdatePaymentAmountDto, UpdatePurchaseInvoiceDto } from '../dto/update-purchase-invoice.dto';
+// src/Purchases/services/purchase-invoices.service.ts
+//hedi s7i7a
 
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectRepository }     from '@nestjs/typeorm';
+import { LessThan, Repository } from 'typeorm';
+
+import { PurchaseInvoice }           from '../entities/purchase-invoice.entity';
+import { InvoiceStatus }             from '../enum/invoice-status.enum';
+import { CreatePurchaseInvoiceDto }  from '../dto/create-purchase-invoice.dto';
+import {
+  DisputeInvoiceDto,
+  UpdatePaymentAmountDto,
+  UpdatePurchaseInvoiceDto,
+} from '../dto/update-purchase-invoice.dto';
+
+// Whitelist des champs triables — évite l'injection SQL via ORDER BY
+const SORTABLE_FIELDS: Record<string, string> = {
+  invoice_number_supplier: 'inv.invoice_number_supplier',
+  invoice_date:            'inv.invoice_date',
+  due_date:                'inv.due_date',
+  net_amount:              'inv.net_amount',
+  supplier:                'supplier.name',
+};
 
 @Injectable()
 export class PurchaseInvoicesService {
@@ -21,231 +36,187 @@ export class PurchaseInvoicesService {
 
   constructor(
     @InjectRepository(PurchaseInvoice)
-    private readonly repo: Repository<PurchaseInvoice>,
-
-    private readonly suppliersService: SuppliersService,
+    private readonly invRepo: Repository<PurchaseInvoice>,
   ) {}
 
-  // ─────────────────────────────────────────────────────────────
-  // CREATE
-  // ─────────────────────────────────────────────────────────────
+  // ─── CREATE ───────────────────────────────────────────────────────────────────
   async create(businessId: string, dto: CreatePurchaseInvoiceDto): Promise<PurchaseInvoice> {
-    const supplier = await this.suppliersService.findOneOrFail(businessId, dto.supplier_id);
+    const timbre    = dto.timbre_fiscal ?? 1.000;
+    const net       = this.round(dto.subtotal_ht + dto.tax_amount + timbre);
+    const dueDelta  = 30; // jours par défaut — à lire depuis Supplier.payment_terms si dispo
 
-    const timbre  = dto.timbre_fiscal ?? 1.000;
-    const net     = this.round(dto.subtotal_ht + dto.tax_amount + timbre);
-
-    if (dto.net_amount !== undefined && Math.abs(dto.net_amount - net) > 0.005) {
-      throw new BadRequestException(
-        `Montants incohérents : ${dto.subtotal_ht} + ${dto.tax_amount} + ${timbre} = ${net} DT` +
-        ` mais net_amount fourni = ${dto.net_amount} DT.`,
-      );
-    }
-
-    const invoiceDate = new Date(dto.invoice_date);
-    const dueDate     = dto.due_date
+    const dueDate = dto.due_date
       ? new Date(dto.due_date)
-      : this.addDays(invoiceDate, supplier.payment_terms);
+      : new Date(new Date(dto.invoice_date).getTime() + dueDelta * 86_400_000);
 
-    return this.repo.save(this.repo.create({
+    const inv = this.invRepo.create({
       ...dto,
       business_id:   businessId,
-      invoice_date:  invoiceDate,
-      due_date:      dueDate,
       timbre_fiscal: timbre,
       net_amount:    net,
       paid_amount:   0,
       status:        InvoiceStatus.PENDING,
-    }));
+      due_date:      dueDate,
+    });
+
+    return this.invRepo.save(inv);
   }
-
-  // ─────────────────────────────────────────────────────────────
-  // FIND ALL
-  // ─────────────────────────────────────────────────────────────
+  // ─── FIND ALL (avec tri côté backend) ─────────────────────────────────────────
   async findAll(businessId: string, query: any) {
-    const { supplier_id, status, due_before, date_from, date_to, page = 1, limit = 20 } = query;
+    const {
+      status, supplier_id, date_from, date_to, due_before,
+      // ANOMALIE 4 : nouveaux paramètres de tri
+      sort_field = 'invoice_date',
+      sort_dir   = 'desc',
+      page  = 1,
+      limit = 20,
+    } = query;
 
-    const qb = this.repo
+    const qb = this.invRepo
       .createQueryBuilder('inv')
       .leftJoinAndSelect('inv.supplier', 'supplier')
-      .where('inv.business_id = :businessId', { businessId })
-      .orderBy('inv.due_date', 'ASC')
-      .skip((page - 1) * limit)
-      .take(limit);
+      .where('inv.business_id = :businessId', { businessId });
 
     if (status) {
-      const statuses = status.split(',').map((s: string) => s.trim());
+      const statuses = String(status).split(',').map(s => s.trim());
       qb.andWhere('inv.status IN (:...statuses)', { statuses });
     }
     if (supplier_id) qb.andWhere('inv.supplier_id = :supplier_id', { supplier_id });
-    if (due_before)  qb.andWhere('inv.due_date <= :due_before', { due_before });
     if (date_from)   qb.andWhere('inv.invoice_date >= :date_from', { date_from });
-    if (date_to)     qb.andWhere('inv.invoice_date <= :date_to', { date_to });
+    if (date_to)     qb.andWhere('inv.invoice_date <= :date_to',   { date_to });
+    if (due_before)  qb.andWhere('inv.due_date <= :due_before',    { due_before });
+
+    // ANOMALIE 4 : tri validé par whitelist puis appliqué globalement
+    const orderColumn = SORTABLE_FIELDS[sort_field] ?? 'inv.invoice_date';
+    const orderDir    = sort_dir?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    qb.orderBy(orderColumn, orderDir);
+
+    const skip = (Number(page) - 1) * Number(limit);
+    qb.skip(skip).take(Number(limit));
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit };
+    const total_pages   = Math.ceil(total / Number(limit));
+
+    return { data, total, page: Number(page), limit: Number(limit), total_pages };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // FIND ONE
-  // ─────────────────────────────────────────────────────────────
+  // ─── FIND ONE ─────────────────────────────────────────────────────────────────
   async findOne(businessId: string, id: string): Promise<PurchaseInvoice> {
-    const inv = await this.repo.findOne({
+    const inv = await this.invRepo.findOne({
       where:     { id, business_id: businessId },
       relations: ['supplier', 'supplier_po'],
     });
-    if (!inv) throw new NotFoundException(`Facture fournisseur introuvable (id: ${id})`);
+    if (!inv) throw new NotFoundException(`Facture introuvable (id: ${id})`);
     return inv;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // UPDATE — PENDING seulement
-  // ─────────────────────────────────────────────────────────────
+  // ─── UPDATE (PENDING seulement) ───────────────────────────────────────────────
   async update(businessId: string, id: string, dto: UpdatePurchaseInvoiceDto): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
-
     if (inv.status !== InvoiceStatus.PENDING) {
       throw new BadRequestException(
-        `Modification impossible. Statut : ${inv.status}. Requis : PENDING.`,
+        `Modification impossible. Statut actuel : ${inv.status}. Requis : PENDING.`,
       );
     }
 
-    const subtotal_ht = dto.subtotal_ht   ?? inv.subtotal_ht;
-    const tax_amount  = dto.tax_amount    ?? inv.tax_amount;
-    const timbre      = dto.timbre_fiscal ?? inv.timbre_fiscal;
-    const net_amount  = this.round(subtotal_ht + tax_amount + timbre);
+    Object.assign(inv, dto);
 
-    let due_date = inv.due_date;
-    if (dto.invoice_date && !dto.due_date) {
-      const supplier = await this.suppliersService.findOneOrFail(businessId, inv.supplier_id);
-      due_date = this.addDays(new Date(dto.invoice_date), supplier.payment_terms);
-    } else if (dto.due_date) {
-      due_date = new Date(dto.due_date);
-    }
+    // Recalcul net_amount si les montants ont changé
+    const timbre = Number(inv.timbre_fiscal) || 1.000;
+    inv.net_amount = this.round(
+      Number(inv.subtotal_ht) + Number(inv.tax_amount) + timbre,
+    );
 
-    Object.assign(inv, {
-      ...dto,
-      invoice_date:  dto.invoice_date ? new Date(dto.invoice_date) : inv.invoice_date,
-      due_date,
-      subtotal_ht,
-      tax_amount,
-      timbre_fiscal: timbre,
-      net_amount,
-    });
-
-    return this.repo.save(inv);
+    return this.invRepo.save(inv);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // APPROVE — PENDING → APPROVED
-  // ─────────────────────────────────────────────────────────────
+  // ─── APPROVE ──────────────────────────────────────────────────────────────────
   async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
-
     if (inv.status !== InvoiceStatus.PENDING) {
       throw new BadRequestException(
-        `Approbation impossible. Statut : ${inv.status}. Requis : PENDING.`,
+        `Approbation impossible. Statut actuel : ${inv.status}. Requis : PENDING.`,
       );
     }
-
     inv.status = InvoiceStatus.APPROVED;
-    return this.repo.save(inv);
+    return this.invRepo.save(inv);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // DISPUTE
-  // ─────────────────────────────────────────────────────────────
+  // ─── DISPUTE ──────────────────────────────────────────────────────────────────
   async dispute(businessId: string, id: string, dto: DisputeInvoiceDto): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
-
     if (inv.status === InvoiceStatus.PAID) {
       throw new BadRequestException('Impossible de mettre en litige une facture déjà payée.');
     }
-
     inv.status         = InvoiceStatus.DISPUTED;
     inv.dispute_reason = dto.dispute_reason;
-    return this.repo.save(inv);
+    return this.invRepo.save(inv);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // RESOLVE DISPUTE — DISPUTED → APPROVED
-  // ─────────────────────────────────────────────────────────────
+  // ─── RESOLVE DISPUTE ──────────────────────────────────────────────────────────
   async resolveDispute(businessId: string, id: string): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
-
     if (inv.status !== InvoiceStatus.DISPUTED) {
-      throw new BadRequestException('Cette facture n\'est pas en litige.');
+      throw new BadRequestException(
+        `Résolution impossible. Statut actuel : ${inv.status}. Requis : DISPUTED.`,
+      );
     }
-
     inv.status         = InvoiceStatus.APPROVED;
     inv.dispute_reason = null;
-    return this.repo.save(inv);
+    return this.invRepo.save(inv);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // UPDATE PAYMENT — appelé par Module 5 (Trésorerie)
-  // ─────────────────────────────────────────────────────────────
-  async updatePayment(businessId: string, id: string, dto: UpdatePaymentAmountDto): Promise<PurchaseInvoice> {
+  // ─── UPDATE PAYMENT (appelé par Module Trésorerie) ────────────────────────────
+  async updatePayment(
+    businessId: string,
+    id: string,
+    dto: UpdatePaymentAmountDto,
+  ): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
 
-    if (inv.status === InvoiceStatus.DISPUTED) {
-      throw new BadRequestException('Paiement bloqué : facture en litige.');
-    }
-
-    if (dto.paid_amount > Number(inv.net_amount) + 0.005) {
+    if (dto.paid_amount > Number(inv.net_amount)) {
       throw new BadRequestException(
-        `Paiement (${dto.paid_amount} DT) > net_amount (${inv.net_amount} DT).`,
+        `Le montant payé (${dto.paid_amount}) dépasse le net TTC (${inv.net_amount}).`,
       );
     }
 
-    inv.paid_amount = this.round(dto.paid_amount);
+    inv.paid_amount = dto.paid_amount;
 
-    if (inv.paid_amount >= Number(inv.net_amount) - 0.005) {
+    if (dto.paid_amount >= Number(inv.net_amount)) {
       inv.status = InvoiceStatus.PAID;
-    } else if (inv.paid_amount > 0) {
+    } else if (dto.paid_amount > 0) {
       inv.status = InvoiceStatus.PARTIALLY_PAID;
     }
 
-    return this.repo.save(inv);
+    return this.invRepo.save(inv);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // CRON — chaque nuit à 1h, passe les factures échues à OVERDUE
-  // ─────────────────────────────────────────────────────────────
+  // ─── CRON : passer en OVERDUE les factures échues ────────────────────────────
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async markOverdue(): Promise<void> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const result = await this.repo
+    const overdueStatuses = [
+      InvoiceStatus.PENDING,
+      InvoiceStatus.APPROVED,
+      InvoiceStatus.PARTIALLY_PAID,
+    ];
+
+    const result = await this.invRepo
       .createQueryBuilder()
       .update(PurchaseInvoice)
       .set({ status: InvoiceStatus.OVERDUE })
-      .where('due_date < :today', { today })
-      .andWhere('status IN (:...statuses)', {
-        statuses: [
-          InvoiceStatus.PENDING,
-          InvoiceStatus.APPROVED,
-          InvoiceStatus.PARTIALLY_PAID,
-        ],
-      })
+      .where('status IN (:...statuses)', { statuses: overdueStatuses })
+      .andWhere('due_date < :today', { today })
       .execute();
 
-        if ((result.affected ?? 0) > 0) {
-        this.logger.log(`Cron OVERDUE : ${result.affected} facture(s) passée(s) en OVERDUE.`);
-        }
+    if (result.affected) {
+      this.logger.log(`${result.affected} facture(s) passée(s) en OVERDUE.`);
+    }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // HELPERS
-  // ─────────────────────────────────────────────────────────────
   private round(v: number): number {
     return Math.round(v * 1000) / 1000;
-  }
-
-  private addDays(date: Date, days: number): Date {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    return d;
   }
 }
