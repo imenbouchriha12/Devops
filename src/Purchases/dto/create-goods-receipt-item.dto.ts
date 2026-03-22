@@ -1,24 +1,11 @@
-import {
-  IsUUID,
-  IsOptional,
-  IsString,
-  IsNumber,
-  IsPositive,
-  IsDateString,
-  IsArray,
-  ValidateNested,
-  ArrayMinSize,
-} from 'class-validator';
- 
+import { IsNotEmpty, IsNumber, IsPositive, IsUUID } from "class-validator";
+
 export class CreateGoodsReceiptItemDto {
- 
-  // ID de la ligne du BC correspondante (SupplierPOItem)
-  @IsUUID()
+  @IsUUID('4', { message: 'Ligne de BC invalide' })
+  @IsNotEmpty()
   supplier_po_item_id: string;
  
-  // Doit être > 0 et <= reliquat restant (quantity_ordered - quantity_received)
   @IsNumber()
-  @IsPositive()
+  @IsPositive({ message: 'La quantité reçue doit être positive' })
   quantity_received: number;
 }
- 
