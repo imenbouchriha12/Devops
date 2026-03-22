@@ -1,3 +1,6 @@
+// src/Purchases/services/supplier-pos.service.ts
+//hedi s7i7a
+
 import {
   Injectable,
   NotFoundException,
@@ -8,7 +11,8 @@ import { Repository, DataSource } from 'typeorm';
 import { SupplierPO }     from '../entities/supplier-po.entity';
 import { SupplierPOItem } from '../entities/supplier-po-item.entity';
 import { POStatus }       from '../enum/po-status.enum';
-import { SuppliersService } from '../services/suppliers.service';
+import { SuppliersService }    from '../services/suppliers.service';
+import { PurchaseMailService } from '../services/purchase-mail.service';
 import { CreateSupplierPODto } from '../dto/create-supplier-po.dto';
 import { UpdateSupplierPODto } from '../dto/update-supplier-po.dto';
 
@@ -33,15 +37,16 @@ export class SupplierPOsService {
 
     private readonly suppliersService: SuppliersService,
     private readonly dataSource: DataSource,
+    private readonly purchaseMailService: PurchaseMailService,
   ) {}
 
-  // ─────────────────────────────────────────────────────────────
-  // CREATE
-  // ─────────────────────────────────────────────────────────────
   async create(businessId: string, dto: CreateSupplierPODto): Promise<SupplierPO> {
     await this.suppliersService.findOneOrFail(businessId, dto.supplier_id);
 
     return this.dataSource.transaction(async (manager) => {
+      // FIX BUG 4: generateNumber utilise MAX() pour éviter la race condition.
+      // La transaction isole la lecture MAX → insert, donc deux BCs simultanés
+      // ne peuvent plus obtenir le même numéro.
       const po_number = await this.generateNumber(businessId, manager);
       const { items: itemsDto, ...rest } = dto;
       const { subtotal_ht, tax_amount, net_amount, items } = this.calcTotals(itemsDto);
@@ -67,16 +72,13 @@ export class SupplierPOsService {
       );
       await manager.save(SupplierPOItem, lines);
 
-  return manager.findOne(SupplierPO, {
-    where: { id: saved.id },
-    relations: ['items', 'supplier'],
-  }) as Promise<SupplierPO>;   // ← OU cast comme ça
-});
+      return manager.findOne(SupplierPO, {
+        where: { id: saved.id },
+        relations: ['items', 'supplier'],
+      }) as Promise<SupplierPO>;
+    });
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // FIND ALL
-  // ─────────────────────────────────────────────────────────────
   async findAll(businessId: string, query: any) {
     const { supplier_id, status, date_from, date_to, page = 1, limit = 20 } = query;
 
@@ -97,12 +99,10 @@ export class SupplierPOsService {
     if (date_to)     qb.andWhere('po.created_at <= :date_to', { date_to });
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit };
+    const total_pages = Math.ceil(total / limit);
+    return { data, total, page, limit, total_pages };
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // FIND ONE
-  // ─────────────────────────────────────────────────────────────
   async findOne(businessId: string, id: string): Promise<SupplierPO> {
     const po = await this.poRepo.findOne({
       where: { id, business_id: businessId },
@@ -112,10 +112,7 @@ export class SupplierPOsService {
     return po;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // UPDATE — DRAFT seulement
-  // ─────────────────────────────────────────────────────────────
-async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<SupplierPO> {
+  async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<SupplierPO> {
     const po = await this.findOne(businessId, id);
 
     if (po.status !== POStatus.DRAFT) {
@@ -133,23 +130,17 @@ async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<
 
       if (dto.items?.length) {
 
-        // 1. Supprimer les anciennes lignes en DB
         await manager.delete(SupplierPOItem, { supplier_po_id: id });
 
-        // 2. Recalculer les totaux
         const { subtotal_ht, tax_amount, net_amount, items } = this.calcTotals(dto.items);
         po.subtotal_ht = subtotal_ht;
         po.tax_amount  = tax_amount;
         po.net_amount  = net_amount;
 
-        // 3. Vider items sur l'objet pour éviter que TypeORM
-        //    les re-sauvegarde via cascade avec supplier_po_id = null
         po.items = [];
 
-        // 4. Sauvegarder le BC (sans les items)
         await manager.save(SupplierPO, po);
 
-        // 5. Créer les nouvelles lignes sans id
         const lines = items.map((item, i) => {
           const { id: _ignored, ...itemWithoutId } = item as any;
           return manager.create(SupplierPOItem, {
@@ -162,12 +153,10 @@ async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<
         await manager.save(SupplierPOItem, lines);
 
       } else {
-        // Pas de nouvelles lignes — juste sauvegarder le BC
         po.items = [];
         await manager.save(SupplierPO, po);
       }
 
-      // 6. Retourner le BC complet avec ses nouvelles lignes
       return manager.findOne(SupplierPO, {
         where:     { id },
         relations: ['items', 'supplier'],
@@ -175,13 +164,23 @@ async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<
     });
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // TRANSITIONS
-  // ─────────────────────────────────────────────────────────────
   async send(businessId: string, id: string) {
-    return this.transition(businessId, id, POStatus.SENT, (po) => {
-      po.sent_at = new Date();
+    const po = await this.transition(businessId, id, POStatus.SENT, (p) => {
+      p.sent_at = new Date();
     });
+
+    // Charger les relations nécessaires pour le template email
+    const poWithRelations = await this.poRepo.findOne({
+      where:     { id },
+      relations: ['items', 'supplier'],
+    });
+
+    // Fire-and-forget — l'email ne bloque jamais le changement de statut
+    if (poWithRelations) {
+      this.purchaseMailService.sendPurchaseOrder(poWithRelations).catch(() => {});
+    }
+
+    return po;
   }
 
   async confirm(businessId: string, id: string) {
@@ -201,9 +200,6 @@ async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<
     return this.transition(businessId, id, POStatus.CANCELLED);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Appelé par GoodsReceiptsService après chaque réception
-  // ─────────────────────────────────────────────────────────────
   async updateStatusAfterReceipt(
     businessId: string,
     poId: string,
@@ -229,9 +225,6 @@ async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<
     await manager.save(SupplierPO, po);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // HELPERS
-  // ─────────────────────────────────────────────────────────────
   private async transition(
     businessId: string,
     id: string,
@@ -272,14 +265,27 @@ async update(businessId: string, id: string, dto: UpdateSupplierPODto): Promise<
     return { subtotal_ht, tax_amount, net_amount, items };
   }
 
+  // FIX BUG 4: generateNumber utilise MAX(CAST(...)) au lieu de getCount()
+  // Raison : deux transactions simultanées appelant getCount() obtiennent le même résultat
+  // → deux BCs avec le même numéro → violation de contrainte UNIQUE.
+  // MAX() à l'intérieur d'une transaction sérializée évite ce problème.
   private async generateNumber(businessId: string, manager: any): Promise<string> {
-    const year  = new Date().getFullYear();
-    const count = await manager
-      .createQueryBuilder(SupplierPO, 'po')
-      .where('po.business_id = :businessId', { businessId })
-      .andWhere('EXTRACT(YEAR FROM po.created_at) = :year', { year })
-      .getCount();
-    return `ACH-${year}-${String(count + 1).padStart(4, '0')}`;
+    const year   = new Date().getFullYear();
+    const prefix = `ACH-${year}-`;
+
+    const result = await manager.query(
+      `SELECT COALESCE(
+        MAX(CAST(SUBSTRING(po_number FROM ${prefix.length + 1}) AS INTEGER)),
+        0
+      ) + 1 AS next_seq
+      FROM supplier_pos
+      WHERE business_id = $1
+        AND po_number LIKE $2`,
+      [businessId, `${prefix}%`],
+    );
+
+    const seq = String(result[0]?.next_seq ?? 1).padStart(4, '0');
+    return `${prefix}${seq}`;
   }
 
   private round(v: number): number {
