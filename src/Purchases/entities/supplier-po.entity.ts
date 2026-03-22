@@ -14,6 +14,7 @@ import { SupplierPOItem }  from './supplier-po-item.entity';
 import { GoodsReceipt }    from './goods-receipt.entity';
 import { PurchaseInvoice } from './purchase-invoice.entity';
 import { POStatus } from '../enum/po-status.enum';
+import { Business } from 'src/businesses/entities/business.entity';
 
 @Entity('supplier_pos')
 @Index(['business_id', 'status'])

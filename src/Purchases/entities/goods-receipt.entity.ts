@@ -11,6 +11,8 @@ import {
 import { SupplierPO }       from './supplier-po.entity';
 import { Supplier }         from './supplier.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
+import { Business } from 'src/businesses/entities/business.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('goods_receipts')
 @Index(['business_id'])
