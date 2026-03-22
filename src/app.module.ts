@@ -38,27 +38,24 @@ import { StockExitItem } from './sales/entities/stock-exit-item.entity';
 import { Invoice } from './sales/entities/invoice.entity';
 import { InvoiceItem } from './sales/entities/invoice-item.entity';
 
-
-
-
-
-
 // Finance Entities
 import { Account } from './accounts/entities/account.entity';
 import { Payment } from './payments/entities/payment.entity';
 import { Transaction } from './transactions/entities/transaction.entity';
 
-// Stock Entities (YOUR MODULE)
+// Stock Entities
 import { Product } from './stock/entities/product.entity';
 import { ProductCategory } from './stock/entities/product-category.entity';
 import { StockMovement } from './stock/entities/stock-movement.entity';
-// Purchases
+
+// Purchases Entities
 import { Supplier } from './Purchases/entities/supplier.entity';
 import { SupplierPO } from './Purchases/entities/supplier-po.entity';
 import { SupplierPOItem } from './Purchases/entities/supplier-po-item.entity';
 import { PurchaseInvoice } from './Purchases/entities/purchase-invoice.entity';
 import { GoodsReceipt } from './Purchases/entities/goods-receipt.entity';
 import { GoodsReceiptItem } from './Purchases/entities/goods-receipt-item.entity';
+import { SupplierPayment } from './Purchases/entities/supplier-payment.entity'; // ✅ added
 import { PurchasesModule } from './Purchases/purchases.module';
 import { SupplierPOsController } from './Purchases/controllers/supplier-pos.controller';
 import { SuppliersController } from './Purchases/controllers/suppliers.controller';
@@ -80,7 +77,7 @@ import { SupplierPayment } from './Purchases/entities/supplier-payment.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
-         synchronize: true,  // ← AJOUT : manquait complètement
+        synchronize: true,
 
         entities: [
           // Core
@@ -93,13 +90,15 @@ import { SupplierPayment } from './Purchases/entities/supplier-payment.entity';
           TaxRate,
           Client,
 
-          //purchase
+          // Purchases
           Supplier,
           SupplierPO,
           SupplierPOItem,
           PurchaseInvoice,
           GoodsReceipt,
           GoodsReceiptItem,
+          SupplierPayment, // ✅ added
+
           // Sales
           Quote,
           QuoteItem,
@@ -117,14 +116,11 @@ import { SupplierPayment } from './Purchases/entities/supplier-payment.entity';
           Payment,
           Transaction,
 
-          // Stock (Merged cleanly)
+          // Stock
           Product,
           ProductCategory,
           StockMovement,
         ],
-
-      
-
       }),
       inject: [ConfigService],
     }),
@@ -136,19 +132,17 @@ import { SupplierPayment } from './Purchases/entities/supplier-payment.entity';
     BusinessesModule,
     ClientsModule,
 
-
     // Sales & Finance
     SalesModule,
     AccountsModule,
     PaymentsModule,
     TransactionsModule,
 
-    //purchase
-     PurchasesModule,
+    // Purchases
+    PurchasesModule,
 
-    // Stock (Merged safely)
+    // Stock
     StockModule,
-
   ],
   controllers: [],
   providers: [],

@@ -12,6 +12,14 @@ import { StockExit } from './entities/stock-exit.entity';
 import { StockExitItem } from './entities/stock-exit-item.entity';
 import { Invoice } from './entities/invoice.entity';
 import { InvoiceItem } from './entities/invoice-item.entity';
+import { QuotesService } from './services/quotes.service';
+import { SalesOrdersService } from './services/sales-orders.service';
+import { DeliveryNotesService } from './services/delivery-notes.service';
+import { InvoicesService } from './services/invoices.service';
+import { QuotesController } from './controllers/quotes.controller';
+import { SalesOrdersController } from './controllers/sales-orders.controller';
+import { DeliveryNotesController } from './controllers/delivery-notes.controller';
+import { InvoicesController } from './controllers/invoices.controller';
 
 @Module({
   imports: [
@@ -28,8 +36,23 @@ import { InvoiceItem } from './entities/invoice-item.entity';
       InvoiceItem,
     ]),
   ],
-  providers: [],
-  controllers: [],
-  exports: [],
+  providers: [
+    QuotesService,
+    SalesOrdersService,
+    DeliveryNotesService,
+    InvoicesService,
+  ],
+  controllers: [
+    QuotesController,
+    SalesOrdersController,
+    DeliveryNotesController,
+    InvoicesController,
+  ],
+  exports: [
+    QuotesService,
+    SalesOrdersService,
+    DeliveryNotesService,
+    InvoicesService,
+  ],
 })
 export class SalesModule {}
