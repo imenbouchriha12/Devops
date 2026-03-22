@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Product } from '../../stock/entities/product.entity';
 
 @Entity('quote_items')
@@ -12,7 +12,8 @@ export class QuoteItem {
   @Column()
   quoteId: string;
 
-  @ManyToOne(() => Product, { nullable: true })
+  @ManyToOne(() => Product, (product) => product.quoteItems, { nullable: true })
+  @JoinColumn({ name: 'productId' })
   product: Product;
 
   @Column({ nullable: true })

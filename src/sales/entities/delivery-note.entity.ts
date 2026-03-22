@@ -2,7 +2,6 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDat
 import { Business } from '../../businesses/entities/business.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { DeliveryNoteItem } from './delivery-note-item.entity';
-import { SalesOrder } from './sales-order.entity';
 
 @Entity('delivery_notes')
 export class DeliveryNote {
@@ -33,8 +32,8 @@ export class DeliveryNote {
   @Column()
   clientId: string;
 
-  @ManyToOne(() => SalesOrder, so => so.deliveryNotes, { nullable: true })
-  salesOrder: SalesOrder;
+  @ManyToOne('SalesOrder', 'deliveryNotes', { nullable: true })
+  salesOrder: any;
 
   @Column({ nullable: true })
   salesOrderId: string;

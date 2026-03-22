@@ -188,28 +188,51 @@ async register(registerDto: RegisterDto) {
     }
   }
 
-  // ─── Token Generation (private helper) ──────────────────────────────────
+
+// ─── Token Generation (private helper) ──────────────────────────────────
   private async generateTokens(user: User): Promise<{ access_token: string; refresh_token: string }> {
-    // Access token payload — this is what gets decoded on every request
+
+    // ── Trouver le business_id lié à cet utilisateur ─────────────────
+    let business_id: string | null = null;
+
+    try {
+      const tenant = await this.tenantsRepository.findOne({
+        where: { ownerId: user.id },
+      });
+
+      if (tenant) {
+        const business = await this.businessesRepository.findOne({
+          where: { tenant_id: tenant.id },
+          order: { created_at: 'ASC' },
+        });
+        if (business) {
+          business_id = business.id;
+        }
+      }
+    }  catch (error: any) {
+  console.warn('Could not resolve business_id for JWT payload:', error?.message);
+}
+
+    // ── Construire le payload JWT ─────────────────────────────────────
     const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
+      sub:         user.id,
+      email:       user.email,
+      role:        user.role,
+      business_id: business_id,  // null pour PLATFORM_ADMIN
     };
 
-const access_token = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_ACCESS_SECRET')!,
+    const access_token = this.jwtService.sign(payload, {
+      secret:    this.configService.get<string>('JWT_ACCESS_SECRET')!,
       expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRY') as any,
     });
 
-    // Refresh token — stored in DB, long-lived
+    // ── Refresh token (stocké en DB) ──────────────────────────────────
     const refresh_token = uuidv4();
-    const expiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRY'); // '7d'
     const expires_at = new Date();
-    expires_at.setDate(expires_at.getDate() + 7); // 7 days from now
+    expires_at.setDate(expires_at.getDate() + 7); // 7 jours
 
     await this.refreshTokenRepo.save({
-      token: refresh_token,
+      token:   refresh_token,
       user_id: user.id,
       expires_at,
     });

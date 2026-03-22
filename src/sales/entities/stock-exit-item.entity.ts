@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Product } from '../../stock/entities/product.entity';
 
 @Entity('stock_exit_items')
@@ -12,7 +12,8 @@ export class StockExitItem {
   @Column()
   stockExitId: string;
 
-  @ManyToOne(() => Product, { nullable: false })
+  @ManyToOne(() => Product, (product) => product.stockExitItems, { nullable: false })
+  @JoinColumn({ name: 'productId' })
   product: Product;
 
   @Column()
