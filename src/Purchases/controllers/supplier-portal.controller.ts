@@ -1,23 +1,29 @@
 // src/Purchases/controllers/supplier-portal.controller.ts
 // Routes PUBLIQUES — pas de JwtAuthGuard
 // Le fournisseur s'authentifie uniquement via son token de portail
+//
+// SUPPRIMÉ : POST /supplier-portal/invoice (upload facture par fournisseur)
+// RAISON   : illogique — le fournisseur envoie sa facture papier par email,
+//            le business_owner l'uploade lui-même via OCR ou saisie manuelle.
+// GARDÉ    : upload-scan uniquement (pour usage interne futur si nécessaire)
 
 import {
   Body, Controller, Get, Post, Query,
   UploadedFile, UseInterceptors, BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
-import { FileInterceptor }        from '@nestjs/platform-express';
-import { diskStorage }            from 'multer';
-import { extname, join }          from 'path';
-import { existsSync, mkdirSync }  from 'fs';
-import { SupplierPortalService }  from '../services/supplier-portal.service';
+import { FileInterceptor }       from '@nestjs/platform-express';
+import { diskStorage }           from 'multer';
+import { extname, join }         from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { SupplierPortalService } from '../services/supplier-portal.service';
 
 @Controller('supplier-portal')
 export class SupplierPortalController {
 
   constructor(private readonly svc: SupplierPortalService) {}
 
-  // GET /supplier-portal/data?token=xxx
+  // ─── GET /supplier-portal/data?token=xxx ─────────────────────────────────
   // Toutes les données du portail : fournisseur, BC courant, historique, stats
   @Get('data')
   getData(@Query('token') token: string) {
@@ -25,8 +31,9 @@ export class SupplierPortalController {
     return this.svc.getPortalData(token);
   }
 
-  // POST /supplier-portal/confirm?token=xxx
-  // Le fournisseur confirme le BC → statut CONFIRMED automatiquement
+  // ─── POST /supplier-portal/confirm?token=xxx ──────────────────────────────
+  // Le fournisseur confirme le BC → statut CONFIRMED
+  // + email automatique envoyé au business_owner
   @Post('confirm')
   confirmPO(
     @Query('token') token: string,
@@ -37,8 +44,9 @@ export class SupplierPortalController {
     return this.svc.confirmPO(token, poId);
   }
 
-  // POST /supplier-portal/refuse?token=xxx
+  // ─── POST /supplier-portal/refuse?token=xxx ───────────────────────────────
   // Le fournisseur refuse le BC avec un motif
+  // + email automatique envoyé au business_owner avec le motif
   @Post('refuse')
   refusePO(
     @Query('token')  token:  string,
@@ -51,27 +59,10 @@ export class SupplierPortalController {
     return this.svc.refusePO(token, poId, reason);
   }
 
-  // POST /supplier-portal/invoice?token=xxx
-  // Le fournisseur uploade sa facture directement
-  @Post('invoice')
-  uploadInvoice(
-    @Query('token') token: string,
-    @Body() dto: {
-      invoice_number_supplier: string;
-      invoice_date:            string;
-      subtotal_ht:             number;
-      tax_amount:              number;
-      timbre_fiscal:           number;
-      receipt_url?:            string;
-      supplier_po_id?:         string;
-    },
-  ) {
-    if (!token) throw new BadRequestException('Token manquant.');
-    return this.svc.uploadInvoice(token, dto);
-  }
-
-  // POST /supplier-portal/upload-scan?token=xxx
-  // Upload du fichier scan de facture (PDF/image)
+  // ─── POST /supplier-portal/upload-scan?token=xxx ──────────────────────────
+  // Upload du fichier scan (usage interne uniquement)
+  // Le fournisseur NE CRÉE PLUS de factures via ce portail.
+  // Il envoie sa facture papier au business_owner qui l'uploade lui-même.
   @Post('upload-scan')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -92,7 +83,10 @@ export class SupplierPortalController {
         if (allowed.includes(extname(file.originalname).toLowerCase())) {
           cb(null, true);
         } else {
-          cb(new BadRequestException('Format non supporté.') as any, false);
+          cb(
+            new BadRequestException('Format non supporté. Acceptés : PDF, JPG, PNG.') as any,
+            false,
+          );
         }
       },
     }),

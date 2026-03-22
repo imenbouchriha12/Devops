@@ -1,21 +1,6 @@
 // src/Purchases/services/goods-receipts.service.ts
-//
-// VERSION MONOLITHE — tout tourne sur le même port NestJS.
-// On supprime complètement : HttpService, ConfigService, firstValueFrom, notifyStocks().
-// On appelle directement StockMovementsService depuis le même process.
-//
-// ⚠️  Si votre module Stock utilise encore des mock data (pas de vrai service),
-//     commentez simplement l'injection de StockMovementsService et le bloc updateStock()
-//     — tout le reste fonctionne indépendamment.
-
-
-//hedi s7i7a
 import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-  Optional,        // ← permet d'injecter StockMovementsService comme optionnel
+  Injectable, NotFoundException, BadRequestException, Logger, Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -27,9 +12,6 @@ import { SupplierPOsService } from './supplier-pos.service';
 import { POStatus }           from '../enum/po-status.enum';
 import { CreateGoodsReceiptDto } from '../dto/create-goods-receipt.dto';
 import { StockMovementsService } from 'src/stock/services/stock-movements/stock-movements.service';
-
-// Adaptez ce chemin selon la structure réelle de votre module Stock
-// Si le service n'existe pas encore, commentez cette ligne
 
 @Injectable()
 export class GoodsReceiptsService {
@@ -46,15 +28,10 @@ export class GoodsReceiptsService {
     private readonly supplierPOsService: SupplierPOsService,
     private readonly dataSource: DataSource,
 
-    // @Optional() permet de démarrer même si StockModule n'est pas encore importé.
-    // Quand le module Stock sera prêt, retirez @Optional() pour rendre l'injection obligatoire.
     @Optional()
     private readonly stockMovementsService: StockMovementsService,
   ) {}
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // CREATE
-  // ─────────────────────────────────────────────────────────────────────────────
   async create(
     businessId: string,
     poId: string,
@@ -69,6 +46,12 @@ export class GoodsReceiptsService {
         `BC en statut "${po.status}" non réceptionnable. ` +
         `Requis : CONFIRMED ou PARTIALLY_RECEIVED.`,
       );
+    }
+
+    // FIX : récupérer supplier_id depuis le BC — était NULL car pas passé au create()
+    const supplierId = po.supplier_id;
+    if (!supplierId) {
+      throw new BadRequestException('BC sans fournisseur associé.');
     }
 
     const poItems = await this.dataSource
@@ -86,10 +69,12 @@ export class GoodsReceiptsService {
     try {
       const gr_number = await this.generateNumber(businessId, qr.manager);
 
+      // FIX : supplier_id ajouté ici — c'était la cause du NULL
       const gr = qr.manager.create(GoodsReceipt, {
         gr_number,
         business_id:    businessId,
         supplier_po_id: poId,
+        supplier_id:    supplierId,
         receipt_date:   dto.receipt_date ? new Date(dto.receipt_date) : new Date(),
         notes:          dto.notes ?? null,
         received_by:    userId,
@@ -110,7 +95,6 @@ export class GoodsReceiptsService {
         });
         grItems.push(await qr.manager.save(GoodsReceiptItem, grItem));
 
-        // Incrémenter quantity_received sur la ligne BC
         await qr.manager
           .createQueryBuilder()
           .update(SupplierPOItem)
@@ -120,10 +104,7 @@ export class GoodsReceiptsService {
       }
 
       await this.supplierPOsService.updateStatusAfterReceipt(businessId, poId, qr.manager);
-
       await qr.commitTransaction();
-
-      // Mettre à jour le stock APRÈS le commit (appel direct interne, pas d'HTTP)
       await this.updateStock(businessId, grItems, userId);
 
       return this.findOne(businessId, savedGR.id);
@@ -137,9 +118,6 @@ export class GoodsReceiptsService {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // READ
-  // ─────────────────────────────────────────────────────────────────────────────
   async findAllByPO(businessId: string, poId: string): Promise<GoodsReceipt[]> {
     await this.supplierPOsService.findOne(businessId, poId);
     return this.grRepo.find({
@@ -158,9 +136,6 @@ export class GoodsReceiptsService {
     return gr;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PRIVÉ
-  // ─────────────────────────────────────────────────────────────────────────────
   private validateLines(
     lines: CreateGoodsReceiptDto['items'],
     poItemsMap: Map<string, SupplierPOItem>,
@@ -182,7 +157,6 @@ export class GoodsReceiptsService {
     }
   }
 
-  // Numérotation sans race condition (MAX au lieu de COUNT)
   private async generateNumber(businessId: string, manager: any): Promise<string> {
     const year   = new Date().getFullYear();
     const prefix = `BR-${year}-`;
@@ -196,51 +170,18 @@ export class GoodsReceiptsService {
     return `${prefix}${seq}`;
   }
 
-  // Appel direct au service NestJS — AUCUN HTTP en interne
-  //
-  // CAS 1 — StockMovementsService existe déjà dans votre module Stock :
-  //   → Il sera injecté automatiquement (voir purchases.module.ts ci-dessous)
-  //   → Le stock est mis à jour immédiatement après chaque réception
-  //
-  // CAS 2 — Module Stock encore en mock data :
-  //   → stockMovementsService sera null grâce à @Optional()
-  //   → Le log "Stock non disponible" apparaît mais le BR est créé normalement
-  //   → Quand le module Stock sera prêt, tout fonctionnera sans autre changement
   private async updateStock(
     businessId: string,
     items: GoodsReceiptItem[],
     userId: string,
   ): Promise<void> {
     if (!this.stockMovementsService) {
-      this.logger.warn(
-        'StockMovementsService non disponible — stock non mis à jour. ' +
-        'Importez StockModule dans PurchasesModule quand le module Stock sera prêt.',
-      );
+      this.logger.warn('StockMovementsService non disponible — stock non mis à jour.');
       return;
     }
-
     for (const item of items) {
-      // Lignes sans produit catalogue → pas de mouvement stock
       if (!item.product_id) continue;
-
-      /*try {
-        // Adaptez le nom de la méthode selon votre StockMovementsService réel
-        await this.stockMovementsService.createInternal({
-          business_id:    businessId,
-          product_id:     item.product_id,
-          type:           'ENTREE_ACHAT',
-          quantity:       Number(item.quantity_received),
-          unit_cost:      Number(item.unit_price_ht),
-          reference_type: 'GoodsReceiptItem',
-          reference_id:   item.id,
-          created_by:     userId,
-        });
-      } catch (err: any) {
-        // Log sans throw — le BR est déjà sauvegardé, on ne rollback pas pour ça
-        this.logger.error(
-          `Erreur mise à jour stock product_id=${item.product_id} : ${err.message}`,
-        );
-      }*/
+      // Décommenter quand StockModule est prêt
     }
   }
 }
