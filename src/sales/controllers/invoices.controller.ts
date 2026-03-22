@@ -11,32 +11,29 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard }         from '@nestjs/passport';
-import { SupplierPOsService } from '../services/supplier-pos.service';
+import { AuthGuard } from '@nestjs/passport';
+import { InvoicesService } from '../services/invoices.service';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles }      from '../../auth/decorators/roles.decorators';
-import { Role }       from '../../users/enums/role.enum';
-import { CreateSupplierPODto } from '../dto/create-supplier-po.dto';
-import { UpdateSupplierPODto } from '../dto/update-supplier-po.dto';
+import { Roles } from '../../auth/decorators/roles.decorators';
+import { Role } from '../../users/enums/role.enum';
+import { CreateInvoiceDto } from '../dto/create-invoice.dto';
+import { UpdateInvoiceDto } from '../dto/update-invoice.dto';
 
-@Controller('businesses/:businessId/supplier-pos')
+@Controller('businesses/:businessId/invoices')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-export class SupplierPOsController {
+export class InvoicesController {
+  constructor(private readonly service: InvoicesService) {}
 
-  constructor(private readonly service: SupplierPOsService) {}
-
-  // POST /businesses/:businessId/supplier-pos
   @Post()
-  @Roles(Role.BUSINESS_OWNER, Role.ACCOUNTANT)
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
   @HttpCode(HttpStatus.CREATED)
   create(
     @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Body() dto: CreateSupplierPODto,
+    @Body() dto: CreateInvoiceDto,
   ) {
     return this.service.create(businessId, dto);
   }
 
-  // GET /businesses/:businessId/supplier-pos?status=&supplier_id=&page=
   @Get()
   @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT, Role.TEAM_MEMBER)
   findAll(
@@ -46,7 +43,6 @@ export class SupplierPOsController {
     return this.service.findAll(businessId, query);
   }
 
-  // GET /businesses/:businessId/supplier-pos/:id
   @Get(':id')
   @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT, Role.TEAM_MEMBER)
   findOne(
@@ -56,20 +52,18 @@ export class SupplierPOsController {
     return this.service.findOne(businessId, id);
   }
 
-  // PATCH /businesses/:businessId/supplier-pos/:id
   @Patch(':id')
-  @Roles(Role.BUSINESS_OWNER, Role.ACCOUNTANT)
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
   update(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateSupplierPODto,
+    @Body() dto: UpdateInvoiceDto,
   ) {
     return this.service.update(businessId, id, dto);
   }
 
-  // POST /businesses/:businessId/supplier-pos/:id/send  → DRAFT → SENT
   @Post(':id/send')
-  @Roles(Role.BUSINESS_OWNER, Role.ACCOUNTANT)
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
   send(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -77,17 +71,33 @@ export class SupplierPOsController {
     return this.service.send(businessId, id);
   }
 
-  // POST /businesses/:businessId/supplier-pos/:id/confirm  → SENT → CONFIRMED
-  @Post(':id/confirm')
-  @Roles(Role.BUSINESS_OWNER, Role.ACCOUNTANT)
-  confirm(
+  @Post(':id/mark-partially-paid')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  markPartiallyPaid(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.service.confirm(businessId, id);
+    return this.service.markPartiallyPaid(businessId, id);
   }
 
-  // POST /businesses/:businessId/supplier-pos/:id/cancel
+  @Post(':id/mark-paid')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  markPaid(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.markPaid(businessId, id);
+  }
+
+  @Post(':id/mark-overdue')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  markOverdue(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.markOverdue(businessId, id);
+  }
+
   @Post(':id/cancel')
   @Roles(Role.BUSINESS_OWNER)
   cancel(

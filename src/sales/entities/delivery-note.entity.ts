@@ -3,12 +3,6 @@ import { Business } from '../../businesses/entities/business.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { DeliveryNoteItem } from './delivery-note-item.entity';
 
-export enum DeliveryNoteStatus {
-  DRAFT = 'DRAFT',
-  DELIVERED = 'DELIVERED',
-  SIGNED = 'SIGNED'
-}
-
 @Entity('delivery_notes')
 @Index(['businessId', 'status'])
 @Index(['businessId', 'clientId'])
@@ -50,9 +44,8 @@ export class DeliveryNote {
   @Column()
   clientId: string;
 
-  @ManyToOne(() => SalesOrder, (order) => order.deliveryNotes, { nullable: true })
-  @JoinColumn({ name: 'salesOrderId' })
-  salesOrder: SalesOrder | null;
+  @ManyToOne('SalesOrder', 'deliveryNotes', { nullable: true })
+  salesOrder: any;
 
   @Column({ nullable: true })
   salesOrderId: string;
