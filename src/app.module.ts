@@ -55,10 +55,11 @@ import { SupplierPOItem } from './Purchases/entities/supplier-po-item.entity';
 import { PurchaseInvoice } from './Purchases/entities/purchase-invoice.entity';
 import { GoodsReceipt } from './Purchases/entities/goods-receipt.entity';
 import { GoodsReceiptItem } from './Purchases/entities/goods-receipt-item.entity';
-import { SupplierPayment } from './Purchases/entities/supplier-payment.entity'; // ✅ added
 import { PurchasesModule } from './Purchases/purchases.module';
 import { SupplierPOsController } from './Purchases/controllers/supplier-pos.controller';
 import { SuppliersController } from './Purchases/controllers/suppliers.controller';
+import { SupplierPayment } from './Purchases/entities/supplier-payment.entity';
+import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.entity';
 
 @Module({
   imports: [
@@ -96,8 +97,7 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
           PurchaseInvoice,
           GoodsReceipt,
           GoodsReceiptItem,
-          SupplierPayment, // ✅ added
-
+           SupplierPortalToken,
           // Sales
           Quote,
           QuoteItem,
@@ -109,7 +109,7 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
           StockExitItem,
           Invoice,
           InvoiceItem,
-
+         SupplierPayment,
           // Finance
           Account,
           Payment,

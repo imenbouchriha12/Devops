@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDat
 import { Business } from '../../businesses/entities/business.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { DeliveryNoteItem } from './delivery-note-item.entity';
+import { SalesOrder } from './sales-order.entity';
 
 @Entity('delivery_notes')
 export class DeliveryNote {

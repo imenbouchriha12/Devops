@@ -1,12 +1,12 @@
 // src/Purchases/services/purchase-mail.service.ts
-// Service d'email pour le module Purchases.
-// Réutilise la config nodemailer déjà présente dans votre projet.
-// Injectez ce service dans SupplierPOsService pour envoyer l'email à send().
-
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService }      from '@nestjs/config';
+import { InjectRepository }   from '@nestjs/typeorm';
+import { Repository }         from 'typeorm';
 import * as nodemailer        from 'nodemailer';
 import { SupplierPO }         from '../entities/supplier-po.entity';
+import { SupplierPortalService } from './supplier-portal.service';
+import { Business }           from '../../businesses/entities/business.entity';
 
 @Injectable()
 export class PurchaseMailService {
@@ -14,9 +14,17 @@ export class PurchaseMailService {
   private readonly logger     = new Logger(PurchaseMailService.name);
   private readonly transporter: nodemailer.Transporter;
   private readonly from:        string;
+  private readonly frontendUrl: string;
 
-  constructor(private readonly config: ConfigService) {
-    this.from = config.get<string>('GMAIL_USER', 'no-reply@platform.tn');
+  constructor(
+    private readonly config: ConfigService,
+    private readonly portalService: SupplierPortalService,
+
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
+  ) {
+    this.from        = config.get<string>('GMAIL_USER', 'no-reply@platform.tn');
+    this.frontendUrl = config.get<string>('FRONTEND_URL', 'http://localhost:5173');
 
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -27,23 +35,42 @@ export class PurchaseMailService {
     });
   }
 
-  // ─── Envoi BC au fournisseur ────────────────────────────────────────────
   async sendPurchaseOrder(po: SupplierPO): Promise<void> {
     const supplier = po.supplier;
+
     if (!supplier?.email) {
       this.logger.warn(
-        `BC ${po.po_number} : fournisseur sans email — email non envoyé.`,
+        `BC ${po.po_number} : fournisseur "${supplier?.name}" sans email — email non envoyé.`,
       );
       return;
     }
 
+    // Charger les infos du business expéditeur
+    const business = await this.businessRepo.findOne({
+      where: { id: po.business_id },
+    });
+
+    // FIX : utilisation des vrais champs de l'entité Business
+    const businessName  = business?.name  ?? 'Notre société';
+    const businessEmail = business?.email ?? this.from;
+    const businessPhone = business?.phone ?? '';
+    const businessMF    = business?.tax_id ?? '';
+
+    // Générer le lien magique du portail fournisseur
+    const portalToken = await this.portalService.generatePortalToken(
+      po.business_id,
+      supplier.id,
+      po.id,
+    );
+    const portalUrl = `${this.frontendUrl}/supplier-portal?token=${portalToken}`;
+
     const itemsHtml = (po.items ?? []).map(item => `
       <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;">${item.description}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">${Number(item.quantity_ordered).toFixed(3)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">${Number(item.unit_price_ht).toFixed(3)} TND</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">${item.tax_rate_value}%</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">${Number(item.line_total_ht).toFixed(3)} TND</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;">${item.description}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-size:13px;">${Number(item.quantity_ordered).toFixed(3)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-size:13px;">${Number(item.unit_price_ht).toFixed(3)} TND</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;font-size:13px;">${item.tax_rate_value}%</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-size:13px;font-weight:600;">${Number(item.line_total_ht).toFixed(3)} TND</td>
       </tr>
     `).join('');
 
@@ -51,62 +78,118 @@ export class PurchaseMailService {
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#333;">
+<body style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#333;background:#f5f5f5;padding:20px;">
 
   <div style="background:#4F46E5;padding:24px 32px;border-radius:8px 8px 0 0;">
-    <h1 style="color:#fff;margin:0;font-size:22px;">Bon de Commande</h1>
-    <p style="color:#C7D2FE;margin:4px 0 0;font-size:14px;">${po.po_number}</p>
+    <table style="width:100%;">
+      <tr>
+        <td>
+          <h1 style="color:#fff;margin:0;font-size:20px;">${businessName}</h1>
+          ${businessMF    ? `<p style="color:#C7D2FE;margin:3px 0 0;font-size:12px;">MF : ${businessMF}</p>`   : ''}
+          ${businessEmail ? `<p style="color:#C7D2FE;margin:2px 0 0;font-size:12px;">${businessEmail}</p>`     : ''}
+          ${businessPhone ? `<p style="color:#C7D2FE;margin:2px 0 0;font-size:12px;">${businessPhone}</p>`     : ''}
+        </td>
+        <td style="text-align:right;vertical-align:top;">
+          <p style="color:#C7D2FE;margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Bon de Commande</p>
+          <p style="color:#fff;margin:4px 0 0;font-size:22px;font-weight:700;">${po.po_number}</p>
+          <p style="color:#C7D2FE;margin:4px 0 0;font-size:12px;">
+            Le ${new Date().toLocaleDateString('fr-TN', { day: '2-digit', month: 'long', year: 'numeric' })}
+          </p>
+          ${po.expected_delivery
+            ? `<p style="color:#C7D2FE;margin:2px 0 0;font-size:12px;">Livraison souhaitée : ${new Date(po.expected_delivery).toLocaleDateString('fr-TN')}</p>`
+            : ''}
+        </td>
+      </tr>
+    </table>
   </div>
 
-  <div style="background:#F9FAFB;padding:24px 32px;border-left:1px solid #E5E7EB;border-right:1px solid #E5E7EB;">
-    <p style="margin:0;">Bonjour <strong>${supplier.name}</strong>,</p>
-    <p style="margin:12px 0 0;">
-      Nous vous adressons notre bon de commande <strong>${po.po_number}</strong>.
-      Merci de bien vouloir en prendre note et de nous confirmer votre accusé de réception.
+  <div style="background:#fff;padding:24px 32px;border-left:1px solid #E5E7EB;border-right:1px solid #E5E7EB;">
+
+    <table style="width:100%;margin-bottom:20px;">
+      <tr>
+        <td style="width:48%;vertical-align:top;padding:12px;background:#F9FAFB;border-radius:8px;">
+          <p style="font-size:11px;color:#9CA3AF;text-transform:uppercase;margin:0 0 6px;letter-spacing:.05em;">De</p>
+          <p style="font-weight:700;margin:0;font-size:14px;color:#111;">${businessName}</p>
+          ${businessEmail ? `<p style="margin:3px 0 0;font-size:13px;color:#555;">${businessEmail}</p>` : ''}
+          ${businessPhone ? `<p style="margin:2px 0 0;font-size:13px;color:#555;">${businessPhone}</p>` : ''}
+        </td>
+        <td style="width:4%;"></td>
+        <td style="width:48%;vertical-align:top;padding:12px;background:#F9FAFB;border-radius:8px;">
+          <p style="font-size:11px;color:#9CA3AF;text-transform:uppercase;margin:0 0 6px;letter-spacing:.05em;">À</p>
+          <p style="font-weight:700;margin:0;font-size:14px;color:#111;">${supplier.name}</p>
+          ${supplier.email ? `<p style="margin:3px 0 0;font-size:13px;color:#555;">${supplier.email}</p>` : ''}
+          ${supplier.phone ? `<p style="margin:2px 0 0;font-size:13px;color:#555;">${supplier.phone}</p>` : ''}
+          ${supplier.matricule_fiscal ? `<p style="margin:2px 0 0;font-size:11px;color:#9CA3AF;">MF : ${supplier.matricule_fiscal}</p>` : ''}
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#444;">
+      Bonjour <strong>${supplier.name}</strong>,<br><br>
+      Nous avons le plaisir de vous adresser notre bon de commande <strong>${po.po_number}</strong>.
+      Veuillez en prendre connaissance et nous confirmer votre accord via le bouton ci-dessous.
     </p>
-    ${po.expected_delivery ? `<p style="margin:8px 0 0;">Livraison souhaitée : <strong>${new Date(po.expected_delivery).toLocaleDateString('fr-TN')}</strong></p>` : ''}
-  </div>
 
-  <div style="padding:24px 32px;border:1px solid #E5E7EB;border-top:none;">
-    <table style="width:100%;border-collapse:collapse;">
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;">
       <thead>
         <tr style="background:#F3F4F6;">
-          <th style="padding:10px 12px;text-align:left;font-size:13px;color:#6B7280;">Description</th>
-          <th style="padding:10px 12px;text-align:right;font-size:13px;color:#6B7280;">Qté</th>
-          <th style="padding:10px 12px;text-align:right;font-size:13px;color:#6B7280;">P.U. HT</th>
-          <th style="padding:10px 12px;text-align:right;font-size:13px;color:#6B7280;">TVA</th>
-          <th style="padding:10px 12px;text-align:right;font-size:13px;color:#6B7280;">Total HT</th>
+          <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6B7280;font-weight:600;">Description</th>
+          <th style="padding:10px 12px;text-align:right;font-size:12px;color:#6B7280;font-weight:600;">Qté</th>
+          <th style="padding:10px 12px;text-align:right;font-size:12px;color:#6B7280;font-weight:600;">P.U. HT</th>
+          <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">TVA</th>
+          <th style="padding:10px 12px;text-align:right;font-size:12px;color:#6B7280;font-weight:600;">Total HT</th>
         </tr>
       </thead>
       <tbody>${itemsHtml}</tbody>
     </table>
 
-    <div style="margin-top:16px;text-align:right;background:#F9FAFB;padding:12px 16px;border-radius:8px;">
-      <table style="margin-left:auto;">
-        <tr>
-          <td style="padding:3px 16px;color:#6B7280;font-size:14px;">Sous-total HT</td>
-          <td style="padding:3px 0;font-size:14px;font-weight:600;">${Number(po.subtotal_ht).toFixed(3)} TND</td>
+    <div style="text-align:right;margin-bottom:24px;">
+      <table style="margin-left:auto;min-width:280px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;">
+        <tr style="background:#F9FAFB;">
+          <td style="padding:8px 16px;color:#6B7280;font-size:13px;">Sous-total HT</td>
+          <td style="padding:8px 16px;text-align:right;font-size:13px;">${Number(po.subtotal_ht).toFixed(3)} TND</td>
         </tr>
         <tr>
-          <td style="padding:3px 16px;color:#6B7280;font-size:14px;">TVA</td>
-          <td style="padding:3px 0;font-size:14px;font-weight:600;">${Number(po.tax_amount).toFixed(3)} TND</td>
+          <td style="padding:8px 16px;color:#6B7280;font-size:13px;">TVA</td>
+          <td style="padding:8px 16px;text-align:right;font-size:13px;">${Number(po.tax_amount).toFixed(3)} TND</td>
         </tr>
-        <tr>
-          <td style="padding:3px 16px;color:#6B7280;font-size:14px;">Timbre fiscal</td>
-          <td style="padding:3px 0;font-size:14px;font-weight:600;">1.000 TND</td>
+        <tr style="background:#F9FAFB;">
+          <td style="padding:8px 16px;color:#6B7280;font-size:13px;">Timbre fiscal</td>
+          <td style="padding:8px 16px;text-align:right;font-size:13px;">1,000 TND</td>
         </tr>
-        <tr style="border-top:2px solid #E5E7EB;">
-          <td style="padding:8px 16px;font-size:16px;font-weight:700;">Net TTC</td>
-          <td style="padding:8px 0;font-size:16px;font-weight:700;color:#4F46E5;">${Number(po.net_amount).toFixed(3)} TND</td>
+        <tr style="background:#EEF2FF;">
+          <td style="padding:10px 16px;font-size:15px;font-weight:700;color:#3730A3;">Net TTC</td>
+          <td style="padding:10px 16px;text-align:right;font-size:15px;font-weight:700;color:#3730A3;">${Number(po.net_amount).toFixed(3)} TND</td>
         </tr>
       </table>
     </div>
 
-    ${po.notes ? `<div style="margin-top:16px;padding:12px 16px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;"><p style="margin:0;font-size:13px;color:#92400E;"><strong>Notes :</strong> ${po.notes}</p></div>` : ''}
+    ${po.notes ? `
+    <div style="padding:12px 16px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#92400E;"><strong>Notes :</strong> ${po.notes}</p>
+    </div>` : ''}
+
+    <div style="text-align:center;padding:24px;background:#F0F4FF;border-radius:12px;border:1px solid #C7D2FE;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:14px;color:#3730A3;font-weight:600;">
+        Confirmez ou refusez ce bon de commande en un clic
+      </p>
+      <p style="margin:0 0 16px;font-size:12px;color:#6B7280;">
+        Accédez à votre portail sécurisé pour gérer ce BC, uploader votre facture et suivre vos paiements.
+      </p>
+      <a href="${portalUrl}"
+         style="display:inline-block;padding:14px 32px;background:#4F46E5;color:#fff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:.02em;">
+        Accéder à mon portail fournisseur →
+      </a>
+      <p style="margin:12px 0 0;font-size:11px;color:#9CA3AF;">
+        Ce lien est valable 72 heures et est uniquement destiné à ${supplier.name}.
+      </p>
+    </div>
+
   </div>
 
-  <div style="padding:20px 32px;background:#F9FAFB;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 8px 8px;font-size:12px;color:#9CA3AF;text-align:center;">
-    Cet email a été envoyé automatiquement. Merci de ne pas y répondre directement.
+  <div style="padding:16px 32px;background:#F9FAFB;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 8px 8px;font-size:11px;color:#9CA3AF;text-align:center;">
+    Cet email a été envoyé automatiquement par ${businessName}.
+    Si vous n'êtes pas le destinataire prévu, veuillez ignorer ce message.
   </div>
 
 </body>
@@ -114,14 +197,15 @@ export class PurchaseMailService {
 
     try {
       await this.transporter.sendMail({
-        from:    `"Achats" <${this.from}>`,
+        from:    `"${businessName}" <${this.from}>`,
         to:      supplier.email,
-        subject: `Bon de Commande ${po.po_number}`,
+        subject: `Bon de Commande ${po.po_number} — ${businessName}`,
         html,
       });
-      this.logger.log(`Email BC ${po.po_number} envoyé à ${supplier.email}`);
+      this.logger.log(
+        `Email BC ${po.po_number} envoyé à ${supplier.email} avec lien portail.`,
+      );
     } catch (err: any) {
-      // Log sans throw — l'envoi email ne doit pas bloquer le changement de statut
       this.logger.error(
         `Échec envoi email BC ${po.po_number} à ${supplier.email} : ${err.message}`,
       );

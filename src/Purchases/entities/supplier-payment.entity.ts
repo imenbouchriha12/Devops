@@ -37,14 +37,7 @@ export class SupplierPayment {
   @JoinColumn({ name: 'purchase_invoice_id' })
   purchase_invoice: PurchaseInvoice;
 
-  // ✅ Added account relation
-  @Column({ nullable: true })
-  account_id: string;
-
-  @ManyToOne('Account', 'supplierPayments', { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'account_id' })
-  account: any;
-
+  // Numéro séquentiel : PAY-YYYY-XXXX
   @Column({ unique: true })
   payment_number: string;
 
@@ -57,15 +50,18 @@ export class SupplierPayment {
   @Column({ type: 'enum', enum: PaymentMethod, default: PaymentMethod.VIREMENT })
   payment_method: PaymentMethod;
 
+  // Référence virement, numéro chèque, numéro traite...
   @Column({ nullable: true })
   reference: string;
 
+  // Banque émettrice (optionnel)
   @Column({ nullable: true })
   bank_name: string;
 
   @Column({ nullable: true })
   notes: string;
 
+  // Qui a enregistré le paiement
   @Column({ nullable: true })
   created_by: string;
 
