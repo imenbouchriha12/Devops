@@ -2,6 +2,8 @@
 import {
   Injectable, NotFoundException,
   BadRequestException, UnauthorizedException, Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository }       from 'typeorm';
@@ -14,31 +16,35 @@ import { SupplierPayment }     from '../entities/supplier-payment.entity';
 import { Supplier }            from '../entities/supplier.entity';
 import { POStatus }            from '../enum/po-status.enum';
 import { InvoiceStatus }       from '../enum/invoice-status.enum';
+import { PurchaseMailService } from './purchase-mail.service';
 
 @Injectable()
 export class SupplierPortalService {
 
   private readonly logger = new Logger(SupplierPortalService.name);
 
-  constructor(
-    @InjectRepository(SupplierPortalToken)
-    private readonly tokenRepo: Repository<SupplierPortalToken>,
+constructor(
+  @InjectRepository(SupplierPortalToken)
+  private readonly tokenRepo: Repository<SupplierPortalToken>,
 
-    @InjectRepository(SupplierPO)
-    private readonly poRepo: Repository<SupplierPO>,
+  @InjectRepository(SupplierPO)
+  private readonly poRepo: Repository<SupplierPO>,
 
-    @InjectRepository(PurchaseInvoice)
-    private readonly invoiceRepo: Repository<PurchaseInvoice>,
+  @InjectRepository(PurchaseInvoice)
+  private readonly invoiceRepo: Repository<PurchaseInvoice>,
 
-    @InjectRepository(SupplierPayment)
-    private readonly paymentRepo: Repository<SupplierPayment>,
+  @InjectRepository(SupplierPayment)
+  private readonly paymentRepo: Repository<SupplierPayment>,
 
-    @InjectRepository(Supplier)
-    private readonly supplierRepo: Repository<Supplier>,
+  @InjectRepository(Supplier)
+  private readonly supplierRepo: Repository<Supplier>,
 
-    private readonly jwtService: JwtService,
-    private readonly config: ConfigService,
-  ) {}
+  private readonly jwtService: JwtService,
+  private readonly config: ConfigService,
+
+  @Inject(forwardRef(() => PurchaseMailService))
+  private readonly mailService: PurchaseMailService,
+) {}    
 
   // ─── Générer un token de portail pour un BC ──────────────────────────────
   async generatePortalToken(
@@ -163,99 +169,58 @@ export class SupplierPortalService {
   }
 
   // ─── Confirmer un BC ─────────────────────────────────────────────────────
-  async confirmPO(token: string, poId: string): Promise<SupplierPO> {
-    const { business_id, supplier_id } = await this.validateToken(token);
-
-    const po = await this.poRepo.findOne({
-      where: { id: poId, business_id, supplier_id },
-    });
-    if (!po) throw new NotFoundException('BC introuvable.');
-    if (po.status !== POStatus.SENT) {
-      throw new BadRequestException(
-        `BC en statut "${po.status}" — seul un BC SENT peut être confirmé.`,
-      );
-    }
-
-    po.status = POStatus.CONFIRMED;
-    await this.poRepo.save(po);
-    this.logger.log(`BC ${po.po_number} confirmé par le fournisseur via portail.`);
-    return po;
+async confirmPO(token: string, poId: string): Promise<SupplierPO> {
+  const { business_id, supplier_id } = await this.validateToken(token);
+ 
+  const po = await this.poRepo.findOne({
+    where: { id: poId, business_id, supplier_id },
+    relations: ['supplier', 'items'],
+  });
+  if (!po) throw new NotFoundException('BC introuvable.');
+  if (po.status !== POStatus.SENT) {
+    throw new BadRequestException(
+      `BC en statut "${po.status}" — seul un BC SENT peut être confirmé.`,
+    );
   }
+ 
+  po.status = POStatus.CONFIRMED;
+  await this.poRepo.save(po);
+  this.logger.log(`BC ${po.po_number} confirmé par le fournisseur via portail.`);
+ 
+  // ← NOUVEAU : notifier le business_owner par email
+  this.mailService.sendPOConfirmedToOwner(po).catch(err =>
+    this.logger.error(`Email confirmation BC échoué : ${err.message}`),
+  );
+ 
+  return po;
+}
 
   // ─── Refuser un BC ───────────────────────────────────────────────────────
-  async refusePO(token: string, poId: string, reason: string): Promise<SupplierPO> {
-    const { business_id, supplier_id } = await this.validateToken(token);
-
-    const po = await this.poRepo.findOne({
-      where: { id: poId, business_id, supplier_id },
-    });
-    if (!po) throw new NotFoundException('BC introuvable.');
-    if (po.status !== POStatus.SENT) {
-      throw new BadRequestException(
-        `BC en statut "${po.status}" — seul un BC SENT peut être refusé.`,
-      );
-    }
-
-    po.status = POStatus.CANCELLED;
-    await this.poRepo.save(po);
-    this.logger.log(`BC ${po.po_number} refusé par le fournisseur. Motif : ${reason}`);
-    return po;
-  }
-
-  // ─── Upload facture par le fournisseur ───────────────────────────────────
-  async uploadInvoice(
-    token: string,
-    dto: {
-      invoice_number_supplier: string;
-      invoice_date:            string;
-      subtotal_ht:             number;
-      tax_amount:              number;
-      timbre_fiscal:           number;
-      receipt_url?:            string;
-      supplier_po_id?:         string;
-    },
-  ): Promise<PurchaseInvoice> {
-    const { business_id, supplier_id } = await this.validateToken(token);
-
-    const existing = await this.invoiceRepo.findOne({
-      where: { invoice_number_supplier: dto.invoice_number_supplier, business_id, supplier_id },
-    });
-    if (existing) {
-      throw new BadRequestException(
-        `Facture "${dto.invoice_number_supplier}" déjà enregistrée.`,
-      );
-    }
-
-    const net_amount = Math.round(
-      (dto.subtotal_ht + dto.tax_amount + dto.timbre_fiscal) * 1000,
-    ) / 1000;
-
-    const supplier     = await this.supplierRepo.findOne({ where: { id: supplier_id } });
-    const paymentTerms = supplier?.payment_terms ?? 30;
-    const invoiceDate  = new Date(dto.invoice_date);
-    const dueDate      = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + paymentTerms);
-
-    const invoice = this.invoiceRepo.create({
-      business_id,
-      supplier_id,
-      supplier_po_id:          dto.supplier_po_id ?? undefined,
-      invoice_number_supplier: dto.invoice_number_supplier,
-      invoice_date:            invoiceDate,
-      due_date:                dueDate,
-      subtotal_ht:             dto.subtotal_ht,
-      tax_amount:              dto.tax_amount,
-      timbre_fiscal:           dto.timbre_fiscal,
-      net_amount,
-      paid_amount:             0,
-      status:                  InvoiceStatus.PENDING,
-      receipt_url:             dto.receipt_url ?? undefined,
-    });
-
-    const saved = await this.invoiceRepo.save(invoice);
-    this.logger.log(
-      `Facture ${saved.invoice_number_supplier} uploadée par fournisseur ${supplier_id} via portail.`,
+async refusePO(token: string, poId: string, reason: string): Promise<SupplierPO> {
+  const { business_id, supplier_id } = await this.validateToken(token);
+ 
+  const po = await this.poRepo.findOne({
+    where: { id: poId, business_id, supplier_id },
+    relations: ['supplier', 'items'],
+  });
+  if (!po) throw new NotFoundException('BC introuvable.');
+  if (po.status !== POStatus.SENT) {
+    throw new BadRequestException(
+      `BC en statut "${po.status}" — seul un BC SENT peut être refusé.`,
     );
-    return saved;
   }
+ 
+  po.status = POStatus.CANCELLED;
+  await this.poRepo.save(po);
+  this.logger.log(`BC ${po.po_number} refusé par le fournisseur. Motif : ${reason}`);
+ 
+  // ← NOUVEAU : notifier le business_owner par email
+  this.mailService.sendPORefusedToOwner(po, reason).catch(err =>
+    this.logger.error(`Email refus BC échoué : ${err.message}`),
+  );
+ 
+  return po;
+}
+
+
 }
