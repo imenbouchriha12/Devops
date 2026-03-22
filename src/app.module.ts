@@ -1,5 +1,5 @@
 // src/app.module.ts
-import { Module } from '@nestjs/common';
+import { Controller, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 // Core Modules
@@ -62,6 +62,8 @@ import { PurchaseInvoice } from './Purchases/entities/purchase-invoice.entity';
 import { GoodsReceipt } from './Purchases/entities/goods-receipt.entity';
 import { GoodsReceiptItem } from './Purchases/entities/goods-receipt-item.entity';
 import { PurchasesModule } from './Purchases/purchases.module';
+import { SupplierPOsController } from './Purchases/controllers/supplier-pos.controller';
+import { SuppliersController } from './Purchases/controllers/suppliers.controller';
 
 @Module({
   imports: [
@@ -151,5 +153,6 @@ import { PurchasesModule } from './Purchases/purchases.module';
     StockModule,
 
   ],
+  controllers: [],
 })
 export class AppModule {}

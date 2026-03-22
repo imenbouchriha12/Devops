@@ -5,16 +5,26 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
 } from 'typeorm';
 import { AccountType } from '../enums/account-type.enum';
+import { Business } from '../../businesses/entities/business.entity';
 
 @Entity('accounts')
+@Index(['business_id', 'is_active'])
 export class Account {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @Column({ type: 'uuid' })
   business_id!: string;
+
+  @ManyToOne(() => Business)
+  @JoinColumn({ name: 'business_id' })
+  business!: Business;
 
   @Column()
   name!: string;
@@ -42,6 +52,16 @@ export class Account {
 
   @Column({ default: false })
   is_default!: boolean;
+
+  // Reverse relations
+  @OneToMany('Payment', 'account')
+  payments!: any[];
+
+  @OneToMany('SupplierPayment', 'account')
+  supplierPayments!: any[];
+
+  @OneToMany('Transaction', 'account')
+  transactions!: any[];
 
   @CreateDateColumn()
   created_at!: Date;

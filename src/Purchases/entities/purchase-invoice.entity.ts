@@ -8,11 +8,10 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { Supplier }    from './supplier.entity';
-import { SupplierPO }  from './supplier-po.entity';
+import { Business }     from '../../businesses/entities/business.entity';
+import { Supplier }     from './supplier.entity';
+import { SupplierPO }   from './supplier-po.entity';
 import { InvoiceStatus } from '../enum/invoice-status.enum';
-
-
 
 @Entity('purchase_invoices')
 @Index(['business_id', 'status'])
@@ -23,30 +22,49 @@ export class PurchaseInvoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Numéro imprimé sur la facture PAPIER reçue du fournisseur
-  // Ce n'est PAS un numéro généré par nous
+  // Numéro figurant sur la facture PAPIER reçue du fournisseur
+  // Ce n'est PAS un numéro généré par notre système
   @Column({ type: 'varchar', length: 100 })
   invoice_number_supplier: string;
 
-  @Column({
-    type: 'enum',
-    enum: InvoiceStatus,
-    default: InvoiceStatus.PENDING,
-  })
+  @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.PENDING })
   status: InvoiceStatus;
 
+  // ── Multitenant ───────────────────────────────────────────────
   @Column({ type: 'uuid' })
   @Index()
   business_id: string;
 
+  @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
+
+  // ── Fournisseur ───────────────────────────────────────────────
   @Column({ type: 'uuid' })
   supplier_id: string;
 
-  // Lien optionnel vers le BC d'origine
+  // eager:true = fournisseur toujours chargé avec la facture
+  @ManyToOne(() => Supplier, (s) => s.purchase_invoices, {
+    eager: true,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: Supplier;
+
+  // ── Lien optionnel vers le BC d'origine ───────────────────────
   @Column({ type: 'uuid', nullable: true })
   supplier_po_id: string | null;
 
-  // Date figurant sur la facture reçue
+  // eager:false = chargé uniquement sur demande explicite
+  @ManyToOne(() => SupplierPO, {
+    nullable: true,
+    eager: false,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'supplier_po_id' })
+  supplier_po: SupplierPO | null;
+
+  // ── Dates ─────────────────────────────────────────────────────
   @Column({ type: 'date' })
   invoice_date: Date;
 
@@ -54,29 +72,32 @@ export class PurchaseInvoice {
   @Column({ type: 'date' })
   due_date: Date;
 
-  // ── Montants saisis depuis la facture papier reçue ───────────
+  // ── Montants saisis depuis la facture papier ──────────────────
   @Column({ type: 'decimal', precision: 15, scale: 3 })
   subtotal_ht: number;
 
   @Column({ type: 'decimal', precision: 15, scale: 3 })
   tax_amount: number;
 
+  // Timbre fiscal tunisien : 1,000 DT par défaut
   @Column({ type: 'decimal', precision: 15, scale: 3, default: 1.000 })
   timbre_fiscal: number;
 
-  // NET À PAYER = subtotal_ht + tax_amount + timbre_fiscal
+  // NET = subtotal_ht + tax_amount + timbre_fiscal
+  // Toujours recalculé côté serveur, jamais depuis le client
   @Column({ type: 'decimal', precision: 15, scale: 3 })
   net_amount: number;
 
-  // Mis à jour par le Module 5 (Trésorerie) à chaque SupplierPayment
+  // Mis à jour par Module 5 (Trésorerie) à chaque SupplierPayment
   @Column({ type: 'decimal', precision: 15, scale: 3, default: 0 })
   paid_amount: number;
 
-  // URL du scan ou photo de la facture papier
+  // ── Pièce justificative ───────────────────────────────────────
+  // URL du scan / photo de la facture papier uploadée
   @Column({ type: 'varchar', length: 500, nullable: true })
   receipt_url: string | null;
 
-  // Rempli si status = DISPUTED
+  // Raison du litige si status = DISPUTED
   @Column({ type: 'text', nullable: true })
   dispute_reason: string | null;
 
@@ -86,19 +107,15 @@ export class PurchaseInvoice {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  // ── Relations ────────────────────────────────────────────────
-  // eager:true = le fournisseur chargé automatiquement
-  @ManyToOne(() => Supplier, (s) => s.purchase_invoices, { eager: true })
-  @JoinColumn({ name: 'supplier_id' })
-  supplier: Supplier;
-
-  // eager:false = chargé uniquement quand on demande la relation explicitement
-  @ManyToOne(() => SupplierPO, { nullable: true, eager: false })
-  @JoinColumn({ name: 'supplier_po_id' })
-  supplier_po: SupplierPO | null;
-
-  // ── Propriétés calculées (non stockées en DB) ────────────────
+  // ── Propriétés calculées (non stockées en DB) ─────────────────
   get remaining_amount(): number {
     return Math.round((Number(this.net_amount) - Number(this.paid_amount)) * 1000) / 1000;
+  }
+
+  get is_overdue(): boolean {
+    return (
+      this.status !== InvoiceStatus.PAID &&
+      new Date(this.due_date) < new Date()
+    );
   }
 }
