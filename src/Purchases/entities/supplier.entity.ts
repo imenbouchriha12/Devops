@@ -85,4 +85,7 @@ export class Supplier {
 
   @OneToMany(() => PurchaseInvoice, (inv) => inv.supplier)
   purchase_invoices: PurchaseInvoice[];
+
+  @OneToMany('GoodsReceipt', 'supplier')
+  goods_receipts: any[];
 }

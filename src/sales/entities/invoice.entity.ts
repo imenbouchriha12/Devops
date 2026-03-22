@@ -8,11 +8,13 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Business } from '../../businesses/entities/business.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { SalesOrder } from './sales-order.entity';
 import { InvoiceItem } from './invoice-item.entity';
+import { Quote } from './quote.entity';
 
 export enum InvoiceType {
   NORMAL = 'NORMAL',
@@ -31,6 +33,11 @@ export enum InvoiceStatus {
 }
 
 @Entity('invoices')
+@Index(['business_id', 'status'])
+@Index(['business_id', 'client_id'])
+@Index(['business_id', 'due_date'])
+@Index(['purchase_order_id'])
+@Index(['quote_id'])
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -74,6 +81,13 @@ export class Invoice {
   purchase_order: SalesOrder;
 
   @Column({ type: 'uuid', nullable: true })
+  quote_id: string | null;
+
+  @ManyToOne(() => Quote, (quote) => quote.invoices, { nullable: true })
+  @JoinColumn({ name: 'quote_id' })
+  quote: Quote | null;
+
+  @Column({ type: 'uuid', nullable: true })
   original_invoice_id: string;
 
   @ManyToOne(() => Invoice, { nullable: true })
@@ -115,6 +129,18 @@ export class Invoice {
 
   @OneToMany(() => InvoiceItem, (item) => item.invoice, { cascade: true })
   items: InvoiceItem[];
+
+  // Reverse relation to Payments
+  @OneToMany('Payment', 'invoice')
+  payments: any[];
+
+  // Reverse relation to PurchaseOrders
+  @OneToMany(() => SalesOrder, (po) => po.invoice)
+  purchaseOrders: SalesOrder[];
+
+  // Reverse relation to child invoices (Avoir/Credit Notes)
+  @OneToMany(() => Invoice, (invoice) => invoice.original_invoice)
+  creditNotes: Invoice[];
 
   @CreateDateColumn()
   created_at: Date;

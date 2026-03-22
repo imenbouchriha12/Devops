@@ -9,11 +9,11 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { Business }      from '../../businesses/entities/business.entity';
-import { Supplier }      from './supplier.entity';
-import { SupplierPOItem } from './supplier-po-item.entity';
-import { GoodsReceipt }  from './goods-receipt.entity';
-import { POStatus }      from '../enum/po-status.enum';
+import { Supplier }        from './supplier.entity';
+import { SupplierPOItem }  from './supplier-po-item.entity';
+import { GoodsReceipt }    from './goods-receipt.entity';
+import { PurchaseInvoice } from './purchase-invoice.entity';
+import { POStatus } from '../enum/po-status.enum';
 
 @Entity('supplier_pos')
 @Index(['business_id', 'status'])
@@ -92,4 +92,8 @@ export class SupplierPO {
 
   @OneToMany(() => GoodsReceipt, (gr) => gr.supplier_po)
   goods_receipts: GoodsReceipt[];
+
+  // Reverse relation to PurchaseInvoices
+  @OneToMany(() => PurchaseInvoice, (invoice) => invoice.supplier_po)
+  purchase_invoices: PurchaseInvoice[];
 }
