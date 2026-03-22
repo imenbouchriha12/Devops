@@ -1,4 +1,4 @@
-// src/Purchases/purchases.module.ts — VERSION FINALE avec rapprochement 3 voies
+// src/Purchases/purchases.module.ts — VERSION FINALE avec OCR
 import { Module }        from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule }    from '@nestjs/axios';
@@ -30,6 +30,7 @@ import { SupplierPaymentsController }   from './controllers/supplier-payments.co
 import { UploadController }             from './controllers/upload.controller';
 import { PurchaseAlertsController }     from './controllers/purchase-alerts.controller';
 import { ThreeWayMatchingController }   from './controllers/three-way-matching.controller';
+import { OcrController }               from './controllers/ocr.controller';
 
 // Services
 import { PurchasesService }           from './purchases.service';
@@ -42,22 +43,16 @@ import { PurchaseMailService }        from './services/purchase-mail.service';
 import { SupplierPortalService }      from './services/supplier-portal.service';
 import { PurchaseAlertsService }      from './services/purchase-alerts.service';
 import { ThreeWayMatchingService }    from './services/three-way-matching.service';
+import { SupplierScoringService }     from './services/supplier-scoring.service';
+import { OcrService }                from './services/ocr.service';
 import { SupplierScoringController } from './services/supplier-scoring.controller';
-import { SupplierScoringService } from './services/supplier-scoring.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      GoodsReceipt,
-      GoodsReceiptItem,
-      PurchaseInvoice,
-      SupplierPOItem,
-      SupplierPO,
-      Supplier,
-      SupplierPayment,
-      SupplierPortalToken,
-      PurchaseAlert,
-      Business,
+      GoodsReceipt, GoodsReceiptItem, PurchaseInvoice,
+      SupplierPOItem, SupplierPO, Supplier, SupplierPayment,
+      SupplierPortalToken, PurchaseAlert, Business,
     ]),
     HttpModule,
     ScheduleModule.forRoot(),
@@ -79,31 +74,22 @@ import { SupplierScoringService } from './services/supplier-scoring.service';
     GoodsReceiptsController,
     PurchaseInvoicesController,
     SupplierPaymentsController,
-    //UploadController,
+    //UploadController, 
     SupplierPortalController,
     PurchaseAlertsController,
     ThreeWayMatchingController,
-    SupplierScoringController
+    SupplierScoringController, 
+    OcrController,
   ],
 
   providers: [
-    PurchasesService,
-    SuppliersService,
-    SupplierPOsService,
-    GoodsReceiptsService,
-    PurchaseInvoicesService,
-    SupplierPaymentsService,
-    PurchaseMailService,
-    SupplierPortalService,
-    PurchaseAlertsService,
-    ThreeWayMatchingService,
-    SupplierScoringService
+    PurchasesService, SuppliersService, SupplierPOsService,
+    GoodsReceiptsService, PurchaseInvoicesService, SupplierPaymentsService,
+    PurchaseMailService, SupplierPortalService,
+    PurchaseAlertsService, ThreeWayMatchingService, SupplierScoringService,
+    OcrService,
   ],
 
-  exports: [
-    PurchasesService,
-    PurchaseInvoicesService,
-    SupplierPaymentsService,
-  ],
+  exports: [PurchasesService, PurchaseInvoicesService, SupplierPaymentsService],
 })
 export class PurchasesModule {}

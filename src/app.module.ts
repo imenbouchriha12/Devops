@@ -78,7 +78,7 @@ import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         synchronize: true,
-
+        autoLoadEntities: true, 
         entities: [
           // Core
           User,
