@@ -164,24 +164,31 @@ export class SupplierPOsService {
     });
   }
 
-  async send(businessId: string, id: string) {
-    const po = await this.transition(businessId, id, POStatus.SENT, (p) => {
-      p.sent_at = new Date();
+async send(businessId: string, id: string) {
+  const po = await this.transition(businessId, id, POStatus.SENT, (p) => {
+    p.sent_at = new Date();
+  });
+
+  console.log('=== SEND DEBUG ===');
+  console.log('purchaseMailService existe:', !!this.purchaseMailService);
+  console.log('po.supplier:', po.supplier?.name, po.supplier?.email);
+  console.log('==================');
+
+  const poWithRelations = await this.poRepo.findOne({
+    where:     { id },
+    relations: ['items', 'supplier'],
+  });
+
+  console.log('poWithRelations.supplier:', poWithRelations?.supplier?.name, poWithRelations?.supplier?.email);
+
+  if (poWithRelations) {
+    this.purchaseMailService.sendPurchaseOrder(poWithRelations).catch((err) => {
+      console.log('ERREUR EMAIL:', err.message);
     });
-
-    // Charger les relations nécessaires pour le template email
-    const poWithRelations = await this.poRepo.findOne({
-      where:     { id },
-      relations: ['items', 'supplier'],
-    });
-
-    // Fire-and-forget — l'email ne bloque jamais le changement de statut
-    if (poWithRelations) {
-      this.purchaseMailService.sendPurchaseOrder(poWithRelations).catch(() => {});
-    }
-
-    return po;
   }
+
+  return po;
+}
 
   async confirm(businessId: string, id: string) {
     return this.transition(businessId, id, POStatus.CONFIRMED);

@@ -61,4 +61,22 @@ export class DeliveryNotesController {
   ) {
     return this.service.update(businessId, id, dto);
   }
+
+  @Post(':id/deliver')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  markDelivered(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.markDelivered(businessId, id);
+  }
+
+  @Post(':id/cancel')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
+  cancel(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.cancel(businessId, id);
+  }
 }

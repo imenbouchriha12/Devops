@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -71,6 +72,30 @@ export class InvoicesController {
     return this.service.send(businessId, id);
   }
 
+  @Post(':id/send-email')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  async sendByEmail(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { email?: string },
+  ) {
+    return this.service.sendByEmail(businessId, id, body.email);
+  }
+
+  @Post(':id/send-reminder')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  async sendPaymentReminder(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { email?: string },
+  ) {
+    await this.service.sendPaymentReminder(businessId, id, body.email);
+    return {
+      success: true,
+      message: 'Rappel de paiement envoyé avec succès',
+    };
+  }
+
   @Post(':id/mark-partially-paid')
   @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
   markPartiallyPaid(
@@ -105,5 +130,15 @@ export class InvoicesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.cancel(businessId, id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async delete(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.service.delete(businessId, id);
   }
 }

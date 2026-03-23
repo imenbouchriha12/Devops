@@ -131,16 +131,24 @@ export class PurchaseInvoicesService {
   }
 
   // ─── APPROVE ──────────────────────────────────────────────────────────────────
-  async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
-    const inv = await this.findOne(businessId, id);
-    if (inv.status !== InvoiceStatus.PENDING) {
-      throw new BadRequestException(
-        `Approbation impossible. Statut actuel : ${inv.status}. Requis : PENDING.`,
-      );
-    }
-    inv.status = InvoiceStatus.APPROVED;
-    return this.invRepo.save(inv);
+async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
+  const inv = await this.findOne(businessId, id);
+ 
+  if (inv.status !== InvoiceStatus.PENDING) {
+    throw new BadRequestException(
+      `Approbation impossible. Statut : ${inv.status}. Requis : PENDING.`,
+    );
   }
+ 
+  // Recalculer net_amount au cas où il aurait été modifié
+  const net = Math.round(
+    (Number(inv.subtotal_ht) + Number(inv.tax_amount) + Number(inv.timbre_fiscal)) * 1000,
+  ) / 1000;
+  inv.net_amount = net;
+  inv.status = InvoiceStatus.APPROVED;
+ 
+  return this.invRepo.save(inv);
+}
 
   // ─── DISPUTE ──────────────────────────────────────────────────────────────────
   async dispute(businessId: string, id: string, dto: DisputeInvoiceDto): Promise<PurchaseInvoice> {

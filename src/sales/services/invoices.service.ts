@@ -10,6 +10,7 @@ import { InvoiceItem } from '../entities/invoice-item.entity';
 import { InvoiceStatus, InvoiceType } from '../entities/invoice.entity';
 import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { UpdateInvoiceDto } from '../dto/update-invoice.dto';
+import { SalesMailService } from './sales-mail.service';
 
 const TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
   [InvoiceStatus.DRAFT]: [InvoiceStatus.SENT, InvoiceStatus.CANCELLED],
@@ -30,6 +31,7 @@ export class InvoicesService {
     private readonly itemRepo: Repository<InvoiceItem>,
 
     private readonly dataSource: DataSource,
+    private readonly mailService: SalesMailService,
   ) {}
 
   async create(businessId: string, dto: CreateInvoiceDto): Promise<Invoice> {
@@ -154,6 +156,46 @@ export class InvoicesService {
     });
   }
 
+  async sendByEmail(businessId: string, id: string, recipientEmail?: string): Promise<Invoice> {
+    const invoice = await this.findOne(businessId, id);
+    
+    if (invoice.status !== InvoiceStatus.DRAFT && invoice.status !== InvoiceStatus.SENT) {
+      throw new BadRequestException(
+        `Impossible d'envoyer la facture. Statut actuel : ${invoice.status}`,
+      );
+    }
+
+    const email = recipientEmail || invoice.client?.email;
+    if (!email) {
+      throw new BadRequestException('Aucune adresse email fournie');
+    }
+
+    await this.mailService.sendInvoiceEmail(invoice, email);
+
+    if (invoice.status === InvoiceStatus.DRAFT) {
+      return this.send(businessId, id);
+    }
+
+    return invoice;
+  }
+
+  async sendPaymentReminder(businessId: string, id: string, recipientEmail?: string): Promise<void> {
+    const invoice = await this.findOne(businessId, id);
+    
+    if (invoice.status !== InvoiceStatus.OVERDUE && invoice.status !== InvoiceStatus.SENT) {
+      throw new BadRequestException(
+        `Impossible d'envoyer un rappel. Statut actuel : ${invoice.status}`,
+      );
+    }
+
+    const email = recipientEmail || invoice.client?.email;
+    if (!email) {
+      throw new BadRequestException('Aucune adresse email fournie');
+    }
+
+    await this.mailService.sendPaymentReminder(invoice, email);
+  }
+
   async markPartiallyPaid(businessId: string, id: string) {
     return this.transition(businessId, id, InvoiceStatus.PARTIALLY_PAID);
   }
@@ -168,6 +210,30 @@ export class InvoicesService {
 
   async cancel(businessId: string, id: string) {
     return this.transition(businessId, id, InvoiceStatus.CANCELLED);
+  }
+
+  async delete(businessId: string, id: string): Promise<void> {
+    const invoice = await this.findOne(businessId, id);
+    
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      throw new BadRequestException(
+        `Suppression impossible. Seules les factures en brouillon peuvent être supprimées. Statut actuel : ${invoice.status}`,
+      );
+    }
+
+    // Check if invoice is referenced by a sales order
+    const referencedOrder = await this.dataSource.query(
+      `SELECT id FROM sales_orders WHERE "invoiceId" = $1`,
+      [id]
+    );
+
+    if (referencedOrder && referencedOrder.length > 0) {
+      throw new BadRequestException(
+        `Suppression impossible. Cette facture est liée à une commande (ID: ${referencedOrder[0].id}). Vous devez d'abord supprimer ou modifier la commande.`,
+      );
+    }
+
+    await this.invoiceRepo.delete({ id, business_id: businessId });
   }
 
   private async transition(

@@ -15,22 +15,11 @@ import { Client } from '../../clients/entities/client.entity';
 import { SalesOrder } from './sales-order.entity';
 import { InvoiceItem } from './invoice-item.entity';
 import { Quote } from './quote.entity';
+import { InvoiceType } from '../enums/invoice-type.enum';
+import { InvoiceStatus } from '../enums/invoice-status.enum';
 
-export enum InvoiceType {
-  NORMAL = 'NORMAL',
-  AVOIR = 'AVOIR',
-  PROFORMA = 'PROFORMA',
-  ACOMPTE = 'ACOMPTE',
-}
-
-export enum InvoiceStatus {
-  DRAFT = 'DRAFT',
-  SENT = 'SENT',
-  PARTIALLY_PAID = 'PARTIALLY_PAID',
-  PAID = 'PAID',
-  OVERDUE = 'OVERDUE',
-  CANCELLED = 'CANCELLED',
-}
+// Re-export for backward compatibility
+export { InvoiceType, InvoiceStatus };
 
 @Entity('invoices')
 @Index(['business_id', 'status'])
@@ -86,6 +75,13 @@ export class Invoice {
   @ManyToOne(() => Quote, (quote) => quote.invoices, { nullable: true })
   @JoinColumn({ name: 'quote_id' })
   quote: Quote | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  sales_order_id: string;
+
+  @ManyToOne(() => SalesOrder, { nullable: true })
+  @JoinColumn({ name: 'sales_order_id' })
+  sales_order: SalesOrder;
 
   @Column({ type: 'uuid', nullable: true })
   original_invoice_id: string;

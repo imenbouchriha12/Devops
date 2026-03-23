@@ -1,20 +1,11 @@
+// src/transactions/entities/transaction.entity.ts
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Index,
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, ManyToOne, JoinColumn, Index,
 } from 'typeorm';
-import { Account } from '../../accounts/entities/account.entity';
-import { Business } from '../../businesses/entities/business.entity';
-
-export enum TransactionType {
-  ENCAISSEMENT = 'ENCAISSEMENT',
-  DECAISSEMENT = 'DECAISSEMENT',
-  VIREMENT_INTERNE = 'VIREMENT_INTERNE'
-}
+import { Account }          from './account.entity';
+import { Business }         from '../../businesses/entities/business.entity';
+import { TransactionType } from '../enums/transaction-type.enum';
 
 @Entity('transactions')
 @Index(['business_id', 'transaction_date'])
@@ -38,10 +29,7 @@ export class Transaction {
   @JoinColumn({ name: 'account_id' })
   account: Account;
 
-  @Column({
-    type: 'enum',
-    enum: TransactionType
-  })
+  @Column({ type: 'enum', enum: TransactionType })
   type: TransactionType;
 
   @Column({ type: 'decimal', precision: 15, scale: 3 })
@@ -59,7 +47,8 @@ export class Transaction {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  // Polymorphic relation to related entity
+  // Relation polymorphique vers l'entité source
+  // 'Payment' | 'SupplierPayment' | 'Transfer'
   @Column({ type: 'varchar', length: 50, nullable: true })
   related_entity_type: string;
 

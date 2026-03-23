@@ -11,9 +11,7 @@ import { ClientsModule } from './clients/clients.module';
 
 // Sales & Finance Modules
 import { SalesModule } from './sales/sales.module';
-import { AccountsModule } from './accounts/accounts.module';
 import { PaymentsModule } from './payments/payments.module';
-import { TransactionsModule } from './transactions/transactions.module';
 
 // Stock Module
 import { StockModule } from './stock/stock.module';
@@ -39,9 +37,8 @@ import { Invoice } from './sales/entities/invoice.entity';
 import { InvoiceItem } from './sales/entities/invoice-item.entity';
 
 // Finance Entities
-import { Account } from './accounts/entities/account.entity';
+import { Account } from './payments/entities/account.entity';
 import { Payment } from './payments/entities/payment.entity';
-import { Transaction } from './transactions/entities/transaction.entity';
 
 // Stock Entities
 import { Product } from './stock/entities/product.entity';
@@ -55,10 +52,10 @@ import { SupplierPOItem } from './Purchases/entities/supplier-po-item.entity';
 import { PurchaseInvoice } from './Purchases/entities/purchase-invoice.entity';
 import { GoodsReceipt } from './Purchases/entities/goods-receipt.entity';
 import { GoodsReceiptItem } from './Purchases/entities/goods-receipt-item.entity';
-import { SupplierPayment } from './Purchases/entities/supplier-payment.entity'; // ✅ added
 import { PurchasesModule } from './Purchases/purchases.module';
 import { SupplierPOsController } from './Purchases/controllers/supplier-pos.controller';
 import { SuppliersController } from './Purchases/controllers/suppliers.controller';
+import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.entity';
 
 @Module({
   imports: [
@@ -77,7 +74,7 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         synchronize: true,
-
+        autoLoadEntities: true, 
         entities: [
           // Core
           User,
@@ -96,8 +93,7 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
           PurchaseInvoice,
           GoodsReceipt,
           GoodsReceiptItem,
-          SupplierPayment, // ✅ added
-
+           SupplierPortalToken,
           // Sales
           Quote,
           QuoteItem,
@@ -109,11 +105,10 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
           StockExitItem,
           Invoice,
           InvoiceItem,
-
           // Finance
           Account,
           Payment,
-          Transaction,
+
 
           // Stock
           Product,
@@ -133,9 +128,8 @@ import { SuppliersController } from './Purchases/controllers/suppliers.controlle
 
     // Sales & Finance
     SalesModule,
-    AccountsModule,
     PaymentsModule,
-    TransactionsModule,
+
 
     // Purchases
     PurchasesModule,

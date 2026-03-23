@@ -8,6 +8,10 @@ import { Repository, DataSource } from 'typeorm';
 import { Quote } from '../entities/quote.entity';
 import { QuoteItem } from '../entities/quote-item.entity';
 import { QuoteStatus } from '../entities/quote.entity';
+import { SalesOrder, SalesOrderStatus } from '../entities/sales-order.entity';
+import { SalesOrderItem } from '../entities/sales-order-item.entity';
+import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
+import { InvoiceItem } from '../entities/invoice-item.entity';
 import { CreateQuoteDto } from '../dto/create-quote.dto';
 import { UpdateQuoteDto } from '../dto/update-quote.dto';
 
@@ -28,6 +32,18 @@ export class QuotesService {
 
     @InjectRepository(QuoteItem)
     private readonly itemRepo: Repository<QuoteItem>,
+
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepo: Repository<SalesOrder>,
+
+    @InjectRepository(SalesOrderItem)
+    private readonly salesOrderItemRepo: Repository<SalesOrderItem>,
+
+    @InjectRepository(Invoice)
+    private readonly invoiceRepo: Repository<Invoice>,
+
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepo: Repository<InvoiceItem>,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -236,12 +252,230 @@ export class QuotesService {
   async delete(businessId: string, id: string): Promise<void> {
     const quote = await this.findOne(businessId, id);
     
-    if (quote.status !== QuoteStatus.DRAFT) {
+    // Allow deletion of DRAFT and CONVERTED quotes
+    // CONVERTED quotes can be deleted because the invoice/order already exists
+    if (quote.status !== QuoteStatus.DRAFT && quote.status !== QuoteStatus.CONVERTED) {
       throw new BadRequestException(
-        `Suppression impossible. Seuls les devis en brouillon peuvent être supprimés. Statut actuel : ${quote.status}`,
+        `Suppression impossible. Seuls les devis en brouillon (DRAFT) ou convertis (CONVERTED) peuvent être supprimés. Statut actuel : ${quote.status}`,
       );
     }
 
-    await this.quoteRepo.delete({ id, businessId });
+    return this.dataSource.transaction(async (manager) => {
+      // For CONVERTED quotes, we need to remove the foreign key references first
+      if (quote.status === QuoteStatus.CONVERTED) {
+        // Update invoices that reference this quote
+        await manager.query(
+          `UPDATE invoices SET quote_id = NULL WHERE quote_id = $1`,
+          [id]
+        );
+
+        // Update sales orders that reference this quote
+        await manager.query(
+          `UPDATE sales_orders SET "quoteId" = NULL WHERE "quoteId" = $1`,
+          [id]
+        );
+      }
+
+      // Delete quote items first
+      await manager.delete(QuoteItem, { quoteId: id });
+      
+      // Then delete the quote
+      await manager.delete(Quote, { id, businessId });
+    });
+  }
+
+  async convertToInvoice(businessId: string, id: string): Promise<Invoice> {
+    const quote = await this.findOne(businessId, id);
+
+    console.log('Converting quote to invoice:', { quoteId: id, status: quote.status });
+
+    if (quote.status !== QuoteStatus.ACCEPTED) {
+      throw new BadRequestException(
+        `Le devis doit être accepté avant conversion. Statut actuel : ${quote.status}`,
+      );
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      try {
+        // Generate invoice number
+        const invoiceNumber = await this.generateInvoiceNumber(businessId, manager);
+        console.log('Generated invoice number:', invoiceNumber);
+
+        // Create invoice
+        const invoice = manager.create(Invoice, {
+          business_id: businessId,
+          client_id: quote.clientId,
+          invoice_number: invoiceNumber,
+          type: 'NORMAL' as any,
+          status: InvoiceStatus.DRAFT,
+          date: new Date(),
+          due_date: this.calculateDueDate(new Date(), 30),
+          quote_id: quote.id,
+          subtotal_ht: Number(quote.subtotal),
+          tax_amount: Number(quote.taxAmount),
+          timbre_fiscal: Number(quote.timbreFiscal),
+          total_ttc: Number(quote.total) + Number(quote.timbreFiscal),
+          net_amount: Number(quote.netAmount),
+          paid_amount: 0,
+          notes: quote.notes,
+        });
+
+        console.log('Created invoice entity');
+        const savedInvoice = await manager.save(Invoice, invoice);
+        console.log('Saved invoice:', savedInvoice.id);
+
+        // Create invoice items
+        const invoiceItems = quote.items.map((item) => {
+          const lineTotal = Number(item.quantity) * Number(item.unitPrice);
+          const lineTax = lineTotal * (Number(item.taxRate) / 100);
+          const lineTotalTtc = lineTotal + lineTax;
+          
+          return manager.create(InvoiceItem, {
+            invoice_id: savedInvoice.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            tax_rate_value: item.taxRate,
+            line_total_ht: lineTotal,
+            line_tax: lineTax,
+            line_total_ttc: lineTotalTtc,
+            sort_order: 0,
+          });
+        });
+
+        await manager.save(InvoiceItem, invoiceItems);
+        console.log('Saved invoice items:', invoiceItems.length);
+
+        // Update quote
+        quote.status = QuoteStatus.CONVERTED;
+        quote.convertedToInvoiceId = savedInvoice.id;
+        await manager.save(Quote, quote);
+        console.log('Updated quote status to CONVERTED');
+
+        return manager.findOne(Invoice, {
+          where: { id: savedInvoice.id },
+          relations: ['items', 'client'],
+        }) as Promise<Invoice>;
+      } catch (error) {
+        console.error('Error in convertToInvoice transaction:', error);
+        throw error;
+      }
+    });
+  }
+
+  async convertToOrder(businessId: string, id: string): Promise<SalesOrder> {
+    const quote = await this.findOne(businessId, id);
+
+    console.log('Converting quote to order:', { quoteId: id, status: quote.status });
+
+    if (quote.status !== QuoteStatus.ACCEPTED) {
+      throw new BadRequestException(
+        `Le devis doit être accepté avant conversion. Statut actuel : ${quote.status}`,
+      );
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      try {
+        // Generate order number
+        const orderNumber = await this.generateOrderNumber(businessId, manager);
+        console.log('Generated order number:', orderNumber);
+
+        // Create sales order
+        const order = manager.create(SalesOrder, {
+          businessId: businessId,
+          clientId: quote.clientId,
+          orderNumber: orderNumber,
+          status: SalesOrderStatus.CONFIRMED,
+          orderDate: new Date(),
+          expectedDelivery: this.calculateDueDate(new Date(), 7),
+          quoteId: quote.id,
+          subtotal: Number(quote.subtotal),
+          taxAmount: Number(quote.taxAmount),
+          total: Number(quote.total),
+          timbreFiscal: Number(quote.timbreFiscal),
+          netAmount: Number(quote.netAmount),
+          notes: quote.notes,
+        });
+
+        console.log('Created order entity');
+        const savedOrder = await manager.save(SalesOrder, order);
+        console.log('Saved order:', savedOrder.id);
+
+        // Create order items
+        const orderItems = quote.items.map((item) => {
+          const total = Number(item.quantity) * Number(item.unitPrice);
+          
+          return manager.create(SalesOrderItem, {
+            salesOrderId: savedOrder.id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            taxRate: item.taxRate,
+            total: total,
+          });
+        });
+
+        await manager.save(SalesOrderItem, orderItems);
+        console.log('Saved order items:', orderItems.length);
+
+        // Update quote
+        quote.status = QuoteStatus.CONVERTED;
+        quote.convertedToPoId = savedOrder.id;
+        await manager.save(Quote, quote);
+        console.log('Updated quote status to CONVERTED');
+
+        return manager.findOne(SalesOrder, {
+          where: { id: savedOrder.id },
+          relations: ['items', 'client'],
+        }) as Promise<SalesOrder>;
+      } catch (error) {
+        console.error('Error in convertToOrder transaction:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async generateInvoiceNumber(businessId: string, manager: any): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `INV-${year}-`;
+
+    const result = await manager.query(
+      `SELECT COALESCE(
+        MAX(CAST(SUBSTRING(invoice_number FROM ${prefix.length + 1}) AS INTEGER)),
+        0
+      ) + 1 AS next_seq
+      FROM invoices
+      WHERE business_id = $1
+        AND invoice_number LIKE $2`,
+      [businessId, `${prefix}%`],
+    );
+
+    const seq = String(result[0]?.next_seq ?? 1).padStart(5, '0');
+    return `${prefix}${seq}`;
+  }
+
+  private async generateOrderNumber(businessId: string, manager: any): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `BC-${year}-`;
+
+    const result = await manager.query(
+      `SELECT COALESCE(
+        MAX(CAST(SUBSTRING("orderNumber" FROM ${prefix.length + 1}) AS INTEGER)),
+        0
+      ) + 1 AS next_seq
+      FROM sales_orders
+      WHERE "businessId" = $1
+        AND "orderNumber" LIKE $2`,
+      [businessId, `${prefix}%`],
+    );
+
+    const seq = String(result[0]?.next_seq ?? 1).padStart(5, '0');
+    return `${prefix}${seq}`;
+  }
+
+  private calculateDueDate(date: Date, days: number): Date {
+    const due = new Date(date);
+    due.setDate(due.getDate() + days);
+    return due;
   }
 }

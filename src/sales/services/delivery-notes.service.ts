@@ -130,4 +130,18 @@ export class DeliveryNotesService {
     const seq = String(result[0]?.next_seq ?? 1).padStart(4, '0');
     return `${prefix}${seq}`;
   }
+
+  async markDelivered(businessId: string, id: string): Promise<DeliveryNote> {
+    const note = await this.findOne(businessId, id);
+    note.status = 'delivered';
+    await this.noteRepo.save(note);
+    return this.findOne(businessId, id);
+  }
+
+  async cancel(businessId: string, id: string): Promise<DeliveryNote> {
+    const note = await this.findOne(businessId, id);
+    note.status = 'cancelled';
+    await this.noteRepo.save(note);
+    return this.findOne(businessId, id);
+  }
 }
