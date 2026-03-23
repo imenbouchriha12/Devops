@@ -108,6 +108,42 @@ export class QuotesController {
     return this.service.convert(businessId, id);
   }
 
+  @Post(':id/convert-to-invoice')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  async convertToInvoice(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    try {
+      console.log('=== CONVERT TO INVOICE ENDPOINT CALLED ===');
+      console.log('Business ID:', businessId);
+      console.log('Quote ID:', id);
+
+      const result = await this.service.convertToInvoice(businessId, id);
+
+      console.log('=== CONVERSION SUCCESSFUL ===');
+      console.log('Invoice ID:', result.id);
+
+      return result;
+    } catch (error: any) {
+      console.error('=== CONVERSION ERROR ===');
+      console.error('Error name:', error?.name);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      console.error('Full error:', JSON.stringify(error, null, 2));
+      throw error;
+    }
+  }
+
+  @Post(':id/convert-to-order')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  convertToOrder(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.convertToOrder(businessId, id);
+  }
+
   @Delete(':id')
   @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
   @HttpCode(HttpStatus.OK)

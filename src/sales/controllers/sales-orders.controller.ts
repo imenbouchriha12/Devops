@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -96,5 +97,24 @@ export class SalesOrdersController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.cancel(businessId, id);
+  }
+
+  @Post(':id/convert-to-invoice')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  convertToInvoice(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.convertToInvoice(businessId, id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async delete(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.service.delete(businessId, id);
   }
 }

@@ -28,7 +28,7 @@ export class Quote {
   @Column({ type: 'date' })
   quoteDate: Date;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ type: 'date', nullable: true, name: 'valid_until' })
   validUntil: Date;
 
   @Column({ type: 'decimal', precision: 12, scale: 3, default: 0 })
@@ -59,10 +59,10 @@ export class Quote {
   notes: string;
 
   // Conversion tracking
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'uuid', nullable: true, name: 'converted_to_po_id' })
   convertedToPoId: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'uuid', nullable: true, name: 'converted_to_invoice_id' })
   convertedToInvoiceId: string | null;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
@@ -70,6 +70,15 @@ export class Quote {
 
   @Column({ type: 'timestamp', nullable: true })
   sentAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'accepted_at' })
+  acceptedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'rejected_at' })
+  rejectedAt: Date | null;
+
+  @Column({ type: 'text', nullable: true, name: 'rejection_reason' })
+  rejectionReason: string | null;
 
   @ManyToOne(() => Business, { nullable: false })
   @JoinColumn({ name: 'businessId' })
