@@ -1,16 +1,11 @@
-
-import { IsUUID, IsInt } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsPositive, IsUUID } from "class-validator";
 
 export class CreateGoodsReceiptItemDto {
-  @IsUUID()
-  goods_receipt_id: string;
-
-  @IsUUID()
+  @IsUUID('4', { message: 'Ligne de BC invalide' })
+  @IsNotEmpty()
   supplier_po_item_id: string;
-
-  @IsUUID()
-  product_id: string;
-
-  @IsInt()
+ 
+  @IsNumber()
+  @IsPositive({ message: 'La quantité reçue doit être positive' })
   quantity_received: number;
 }

@@ -1,6 +1,8 @@
 export enum POStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  DRAFT= 'DRAFT',
+  DRAFT              = 'DRAFT',
+  SENT               = 'SENT',
+  CONFIRMED          = 'CONFIRMED',
+  PARTIALLY_RECEIVED = 'PARTIALLY_RECEIVED',
+  FULLY_RECEIVED     = 'FULLY_RECEIVED',
+  CANCELLED          = 'CANCELLED',
 }

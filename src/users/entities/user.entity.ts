@@ -5,6 +5,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
 
@@ -22,29 +23,31 @@ export class User {
   @Column()
   name!: string;
 
-  @Column({ nullable: true })  // Allow null values for optional fields
+  @Column({ nullable: true })
   phone_number?: string;
 
   @Column({
     type: 'enum',
     enum: Role,
-    default: Role.BUSINESS_OWNER,  // anyone who registers gets this role by default
+    default: Role.BUSINESS_OWNER,
   })
   role!: Role;
 
   @Column({ default: false })
   is_verified!: boolean;
 
+  @Column({ default: false })
+  is_suspended: boolean;
+
+  @Column({ nullable: true })
+  avatar_url?: string;
+
+  @Column({ nullable: true })
+  job_title?: string;
+
   @CreateDateColumn()
   created_at!: Date;
 
-
-  @Column({ default: false })
-  is_suspended: boolean; 
-
-
-  ///HELLLOO NARIII
   @UpdateDateColumn()
   updated_at!: Date;
-  
 }

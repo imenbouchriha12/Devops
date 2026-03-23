@@ -1,30 +1,25 @@
-
-import { IsUUID, IsDateString, IsOptional, IsDecimal, IsString } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, ValidateNested } from "class-validator";
+import { CreateSupplierPOItemDto } from "./create-supplier-po-item.dto";
+import { Type } from "class-transformer";
 
 export class CreateSupplierPODto {
-  @IsUUID()
-  business_id: string;
-
-  @IsUUID()
+  @IsUUID('4', { message: 'Fournisseur invalide' })
+  @IsNotEmpty({ message: 'Le fournisseur est obligatoire' })
   supplier_id: string;
-
-  @IsOptional()
-  @IsDateString()
-  expected_delivery?: Date;
-
+ 
   @IsOptional()
   @IsString()
+  expected_delivery?: string;
+ 
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
   notes?: string;
-
-  @IsOptional()
-  @IsDecimal()
-  subtotal_ht?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  tax_amount?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  net_amount?: number;
+ 
+  @IsArray({ message: 'Les lignes doivent être un tableau' })
+  @ArrayMinSize(1, { message: 'Le bon de commande doit contenir au moins une ligne' })
+  @ArrayMaxSize(100, { message: 'Le bon de commande ne peut pas dépasser 100 lignes' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateSupplierPOItemDto)
+  items: CreateSupplierPOItemDto[];
 }

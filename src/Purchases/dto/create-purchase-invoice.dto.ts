@@ -1,46 +1,44 @@
-
-import { IsUUID, IsDateString, IsOptional, IsDecimal, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
 
 export class CreatePurchaseInvoiceDto {
-  @IsUUID()
-  business_id: string;
-
-  @IsUUID()
-  supplier_id: string;
-
-  @IsOptional()
-  @IsUUID()
-  supplier_po_id?: string;
-
   @IsString()
+  @IsNotEmpty({ message: 'Le numéro de facture fournisseur est obligatoire' })
+  @MaxLength(100)
   invoice_number_supplier: string;
-
-  @IsDateString()
-  invoice_date: Date;
-
-  @IsDateString()
-  due_date: Date;
-
+ 
+  @IsUUID('4', { message: 'Fournisseur invalide' })
+  supplier_id: string;
+ 
+  @IsOptional()
+  @IsUUID('4')
+  supplier_po_id?: string;
+ 
+  @IsString()
+  @IsNotEmpty({ message: 'La date de facture est obligatoire' })
+  invoice_date: string;
+ 
   @IsOptional()
   @IsString()
-  notes?: string;
-
+  due_date?: string;
+ 
+  @IsNumber({}, { message: 'Le sous-total HT doit être un nombre' })
+  @Min(0)
+  subtotal_ht: number;
+ 
+  @IsNumber({}, { message: 'La TVA doit être un nombre' })
+  @Min(0)
+  tax_amount: number;
+ 
   @IsOptional()
-  @IsDecimal()
-  subtotal_ht?: number;
-
+  @IsNumber()
+  @Min(0)
+  timbre_fiscal?: number;
+ 
   @IsOptional()
-  @IsDecimal()
-  tax_amount?: number;
-
-  @IsOptional()
-  @IsDecimal()
+  @IsNumber()
+  @Min(0)
   net_amount?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  paid_amount?: number;
-
+ 
   @IsOptional()
   @IsString()
   receipt_url?: string;

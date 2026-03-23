@@ -1,30 +1,32 @@
-
-import { IsUUID, IsDateString, IsOptional, IsDecimal, IsString } from 'class-validator';
+import { ArrayMinSize, IsArray, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { CreateSupplierPOItemDto } from "./create-supplier-po-item.dto";
+import { Transform, Type } from "class-transformer";
 
 export class UpdateSupplierPODto {
-  @IsUUID()
-  business_id: string;
-
-  @IsUUID()
-  supplier_id: string;
-
+  @IsOptional() @IsString() expected_delivery?: string;
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
+ 
   @IsOptional()
-  @IsDateString()
-  expected_delivery?: Date;
-
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateSupplierPOItemDto)
+  items?: CreateSupplierPOItemDto[];
+}
+ 
+export class QuerySupplierPOsDto {
+  @IsOptional() @IsUUID() supplier_id?: string;
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsString() date_from?: string;
+  @IsOptional() @IsString() date_to?: string;
+ 
   @IsOptional()
-  @IsString()
-  notes?: string;
-
+  @Transform(({ value }) => parseInt(value) || 1)
+  @IsNumber() @Min(1)
+  page?: number = 1;
+ 
   @IsOptional()
-  @IsDecimal()
-  subtotal_ht?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  tax_amount?: number;
-
-  @IsOptional()
-  @IsDecimal()
-  net_amount?: number;
+  @Transform(({ value }) => parseInt(value) || 20)
+  @IsNumber() @Min(1) @Max(100)
+  limit?: number = 20;
 }

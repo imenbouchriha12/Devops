@@ -1,31 +1,28 @@
-
-import { IsUUID, IsOptional, IsInt, IsDecimal, IsString } from 'class-validator';
-
+import { Type } from 'class-transformer';
+import { IsUUID, IsDate, IsArray, ArrayMinSize, ArrayMaxSize, IsInt, IsPositive, IsOptional, IsString, IsNotEmpty, MaxLength, IsNumber, Min, Max, ValidateNested } from 'class-validator';
+ 
 export class CreateSupplierPOItemDto {
-  @IsUUID()
-  supplier_po_id: string;
-
-  @IsUUID()
-  product_id: string;
-
-  @IsOptional()
+  @IsOptional() @IsUUID() product_id?: string;
+ 
   @IsString()
-  description?: string;
-
-  @IsInt()
+  @IsNotEmpty({ message: 'La description de la ligne est obligatoire' })
+  @MaxLength(500)
+  description: string;
+ 
+  @IsNumber({}, { message: 'La quantité doit être un nombre' })
+  @IsPositive({ message: 'La quantité doit être positive' })
   quantity_ordered: number;
-
-  @IsDecimal()
+ 
+  @IsNumber({}, { message: 'Le prix unitaire doit être un nombre' })
+  @Min(0, { message: 'Le prix unitaire ne peut pas être négatif' })
   unit_price_ht: number;
-
+ 
+  @IsNumber()
+  @Min(0) @Max(100)
+  tax_rate_value: number;
+ 
   @IsOptional()
-  @IsDecimal()
-  tax_rate_value?: number;
-
-  @IsDecimal()
-  line_total_ht: number;
-
-  @IsOptional()
-  @IsInt()
-  quantity_received?: number;
+  @IsInt() @Min(0)
+  sort_order?: number;
 }
+ 

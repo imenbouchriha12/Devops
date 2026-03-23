@@ -1,40 +1,77 @@
-
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-
-import { User } from 'src/users/entities/user.entity';
-import { SupplierPO } from './supplier-po.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+import { SupplierPO }       from './supplier-po.entity';
+import { Supplier }         from './supplier.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
-
+import { Business } from 'src/businesses/entities/business.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('goods_receipts')
+@Index(['business_id'])
+@Index(['supplier_po_id'])
+@Index(['supplier_id'])
 export class GoodsReceipt {
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  business_id: string;
-
-  @Column({ unique: true })
+  // Numéro auto-généré : BR-2024-0001
+  @Column({ type: 'varchar', length: 50, unique: true })
   gr_number: string;
 
-  @ManyToOne(() => SupplierPO, (po) => po.goods_receipts)
-  supplier_po: SupplierPO;
+  // ── Multitenant ───────────────────────────────────────────────
+  @Column({ type: 'uuid' })
+  business_id: string;
+
+  @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
+
+  // ── Bon de commande source ────────────────────────────────────
+  @Column({ type: 'uuid' })
+  supplier_po_id: string;
+
+  @Column({ type: 'uuid' })
+  supplier_id: string;
 
   @Column({ type: 'date' })
   receipt_date: Date;
 
-  @ManyToOne(() => User)
-  received_by: User;
-
   @Column({ type: 'text', nullable: true })
-  notes: string;
+  notes: string | null;
 
-  @OneToMany(() => GoodsReceiptItem, (item) => item.goods_receipt, { cascade: true })
-  items: GoodsReceiptItem[];
+  // ── Utilisateur qui a validé la réception ─────────────────────
+  // Lien vers User (même module Auth) — eager:false pour performance
+  @Column({ type: 'uuid' })
+  received_by: string;
 
-  @CreateDateColumn()
+  @ManyToOne(() => User, { eager: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'received_by' })
+  receiver: User;
+
+  @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  // ── Relations ────────────────────────────────────────────────
+  // eager:true = le BC et son fournisseur chargés automatiquement
+  @ManyToOne(() => SupplierPO, (po) => po.goods_receipts, { eager: true })
+  @JoinColumn({ name: 'supplier_po_id' })
+  supplier_po: SupplierPO;
+
+  // Direct relation to Supplier for easier queries
+  @ManyToOne(() => Supplier, (supplier) => supplier.goods_receipts)
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: Supplier;
+
+  // cascade:true = les lignes créées/supprimées avec le bon de réception
+  @OneToMany(() => GoodsReceiptItem, (item) => item.goods_receipt, { cascade: true })
+  items: GoodsReceiptItem[];
 }
