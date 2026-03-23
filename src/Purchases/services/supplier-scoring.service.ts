@@ -14,9 +14,9 @@ import { Supplier }           from '../entities/supplier.entity';
 import { SupplierPO }         from '../entities/supplier-po.entity';
 import { GoodsReceipt }       from '../entities/goods-receipt.entity';
 import { PurchaseInvoice }    from '../entities/purchase-invoice.entity';
-import { SupplierPayment }    from '../entities/supplier-payment.entity';
 import { POStatus }           from '../enum/po-status.enum';
 import { InvoiceStatus }      from '../enum/invoice-status.enum';
+import { SupplierPayment } from 'src/payments/entities/supplier-payment.entity';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

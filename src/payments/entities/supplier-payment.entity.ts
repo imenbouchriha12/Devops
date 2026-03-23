@@ -1,21 +1,15 @@
+// src/payments/entities/supplier-payment.entity.ts
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Index,
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn,
+  ManyToOne, JoinColumn,
 } from 'typeorm';
-import { PurchaseInvoice } from '../../Purchases/entities/purchase-invoice.entity';
-import { Account } from '../../accounts/entities/account.entity';
-import { Business } from '../../businesses/entities/business.entity';
-import { PaymentMethod } from '../enums/payment-method.enum';
+import { Account }         from './account.entity';
+import { Supplier }        from 'src/Purchases/entities/supplier.entity';
+import { PurchaseInvoice } from 'src/Purchases/entities/purchase-invoice.entity';
+import { PaymentMethod }   from '../enums/payment-method.enum';
 
 @Entity('supplier_payments')
-@Index(['business_id', 'payment_date'])
-@Index(['purchase_invoice_id'])
-@Index(['account_id'])
 export class SupplierPayment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -23,42 +17,53 @@ export class SupplierPayment {
   @Column({ type: 'uuid' })
   business_id: string;
 
-  @ManyToOne(() => Business)
-  @JoinColumn({ name: 'business_id' })
-  business: Business;
-
   @Column({ type: 'uuid' })
-  purchase_invoice_id: string;
+  supplier_id: string;
 
-  @ManyToOne(() => PurchaseInvoice, { eager: true })
+  @ManyToOne(() => Supplier, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: Supplier;
+
+  @Column({ type: 'uuid', nullable: true })
+  purchase_invoice_id: string | null;
+
+  @ManyToOne(() => PurchaseInvoice, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'purchase_invoice_id' })
-  purchaseInvoice: PurchaseInvoice;
+  purchase_invoice: PurchaseInvoice | null;
 
-  @Column({ type: 'uuid' })
-  account_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  account_id: string | null;
 
-  @ManyToOne(() => Account, (account) => account.supplierPayments)
+  @ManyToOne(() => Account, { nullable: true, onDelete: 'SET NULL', eager: false })
   @JoinColumn({ name: 'account_id' })
-  account: Account;
+  account: Account | null;
 
-  @Column({ type: 'decimal', precision: 15, scale: 3 })
-  amount: number;
+  // FIX : type varchar explicite obligatoire
+  @Column({ type: 'varchar', length: 50, unique: true })
+  payment_number: string;
 
   @Column({ type: 'date' })
   payment_date: Date;
 
-  @Column({ type: 'enum', enum: PaymentMethod })
-  method: PaymentMethod;
+  @Column({ type: 'decimal', precision: 15, scale: 3 })
+  amount: number;
 
-  @Column({ nullable: true })
-  reference: string;
+  @Column({ type: 'enum', enum: PaymentMethod, default: PaymentMethod.VIREMENT })
+  payment_method: PaymentMethod;
+
+  // FIX : type varchar explicite obligatoire
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  reference: string | null;
 
   @Column({ type: 'text', nullable: true })
-  notes: string;
+  notes: string | null;
 
-  @Column({ type: 'uuid' })
-  created_by: string;
+  @Column({ type: 'uuid', nullable: true })
+  created_by: string | null;
 
   @CreateDateColumn()
   created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 }
