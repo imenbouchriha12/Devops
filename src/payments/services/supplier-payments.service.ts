@@ -4,11 +4,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { SupplierPayment }    from '../entities/supplier-payment.entity';
-import { PurchaseInvoice }    from '../entities/purchase-invoice.entity';
-import { InvoiceStatus }      from '../enum/invoice-status.enum';
-import { SuppliersService }   from './suppliers.service';
+import { PurchaseInvoice }    from '../../Purchases/entities/purchase-invoice.entity';
+import { InvoiceStatus }      from '../../Purchases/enum/invoice-status.enum';
+import { SuppliersService }   from '../../Purchases/services/suppliers.service';
 import { CreateSupplierPaymentDto, QuerySupplierPaymentsDto } from '../dto/supplier-payment.dto';
+import { SupplierPayment } from '../entities/supplier-payment.entity';
 
 @Injectable()
 export class SupplierPaymentsService {

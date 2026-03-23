@@ -12,11 +12,11 @@ import { ConfigService }    from '@nestjs/config';
 import { SupplierPortalToken } from '../entities/supplier-portal-token.entity';
 import { SupplierPO }          from '../entities/supplier-po.entity';
 import { PurchaseInvoice }     from '../entities/purchase-invoice.entity';
-import { SupplierPayment }     from '../entities/supplier-payment.entity';
 import { Supplier }            from '../entities/supplier.entity';
 import { POStatus }            from '../enum/po-status.enum';
 import { InvoiceStatus }       from '../enum/invoice-status.enum';
 import { PurchaseMailService } from './purchase-mail.service';
+import { SupplierPayment } from 'src/payments/entities/supplier-payment.entity';
 
 @Injectable()
 export class SupplierPortalService {

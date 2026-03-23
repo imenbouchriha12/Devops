@@ -5,7 +5,7 @@ import {
   IsOptional, IsString, IsUUID, Max, Min,
   IsBoolean,
 } from 'class-validator';
-import { PaymentMethod } from '../entities/supplier-payment.entity';
+import { PaymentMethod } from '../enums/payment-method.enum';
 
 export class CreateSupplierPaymentDto {
   @IsUUID()
