@@ -62,31 +62,63 @@ export class EmailService {
     const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
     const mailOptions = {
-      from: `"SaaS Platform" <${this.configService.get<string>('GMAIL_USER')}>`,
+      from: `"NovEntra" <${this.configService.get<string>('GMAIL_USER')}>`,
       to,
-      subject: 'Reset Your Password',
+      subject: 'Reset Your NovEntra Password',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Password Reset Request</h2>
-          <p>Hi ${userName},</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetLink}" 
-               style="background-color: #e74c3c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Reset Password
-            </a>
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">NovEntra</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">Business Management Platform</p>
           </div>
-          <p style="color: #666; font-size: 14px;">
-            Or copy and paste this link into your browser:<br>
-            <a href="${resetLink}">${resetLink}</a>
-          </p>
-          <p style="color: #666; font-size: 14px;">
-            This link will expire in 1 hour.
-          </p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="color: #999; font-size: 12px;">
-            If you didn't request a password reset, you can safely ignore this email. Your password won't be changed.
-          </p>
+          
+          <!-- Content -->
+          <div style="background-color: white; padding: 40px 30px;">
+            <h2 style="color: #2d3748; margin: 0 0 20px 0; font-size: 24px;">Password Reset Request</h2>
+            <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 15px 0;">Hi ${userName},</p>
+            <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+              We received a request to reset your password for your NovEntra account. Click the button below to create a new password:
+            </p>
+            
+            <!-- CTA Button -->
+            <div style="text-align: center; margin: 40px 0;">
+              <a href="${resetLink}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 16px 40px; 
+                        text-decoration: none; 
+                        border-radius: 8px; 
+                        display: inline-block; 
+                        font-weight: 600; 
+                        font-size: 16px;
+                        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
+                Reset My Password
+              </a>
+            </div>
+            
+            <p style="color: #718096; font-size: 14px; line-height: 1.6; margin: 30px 0 0 0;">
+              Or copy and paste this link into your browser:
+            </p>
+            <p style="color: #667eea; font-size: 14px; word-break: break-all; margin: 10px 0 0 0;">
+              <a href="${resetLink}" style="color: #667eea;">${resetLink}</a>
+            </p>
+            
+            <!-- Warning Box -->
+            <div style="background-color: #fff5f5; border-left: 4px solid #fc8181; padding: 15px; margin: 30px 0; border-radius: 4px;">
+              <p style="color: #c53030; font-size: 14px; margin: 0; font-weight: 600;">⏱️ This link will expire in 1 hour</p>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div style="background-color: #f7fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+            <p style="color: #a0aec0; font-size: 13px; margin: 0 0 10px 0;">
+              If you didn't request a password reset, you can safely ignore this email. Your password won't be changed.
+            </p>
+            <p style="color: #cbd5e0; font-size: 12px; margin: 0;">
+              © ${new Date().getFullYear()} NovEntra. All rights reserved.
+            </p>
+          </div>
         </div>
       `,
     };

@@ -1,14 +1,21 @@
-// src/transactions/entities/transaction.entity.ts
+
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
 import { TransactionType } from '../enums/transaction-type.enum';
-
+import { Account } from '../../accounts/entities/account.entity';
+import { Business } from '../../businesses/entities/business.entity';
 
 @Entity('transactions')
+@Index(['business_id', 'transaction_date'])
+@Index(['account_id', 'transaction_date'])
+@Index(['is_reconciled'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -16,8 +23,16 @@ export class Transaction {
   @Column({ type: 'uuid' })
   business_id!: string;
 
+  @ManyToOne(() => Business)
+  @JoinColumn({ name: 'business_id' })
+  business!: Business;
+
   @Column({ type: 'uuid' })
   account_id!: string;
+
+  @ManyToOne(() => Account, (account) => account.transactions)
+  @JoinColumn({ name: 'account_id' })
+  account!: Account;
 
   @Column({ type: 'enum', enum: TransactionType })
   type!: TransactionType;
@@ -28,11 +43,12 @@ export class Transaction {
   @Column({ type: 'date' })
   transaction_date!: Date;
 
-  @Column()
-  description!: string;
-
   @Column({ nullable: true })
-  source_type?: string;   // "Payment" | "SupplierPayment" | "Manual"
+  description?: string;
+
+  // polymorphic relation (good idea from Kiro)
+  @Column({ nullable: true })
+  source_type?: string;
 
   @Column({ type: 'uuid', nullable: true })
   source_id?: string;

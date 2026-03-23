@@ -1,9 +1,9 @@
 // src/auth/auth.service.ts
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
@@ -17,6 +17,7 @@ import { Role } from 'src/users/enums/role.enum';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { TaxRate } from '../businesses/entities/tax-rate.entity';
+
 
 @Injectable()
 export class AuthService {
@@ -71,7 +72,7 @@ async validateUser(email: string, password: string): Promise<User | null> {
  
 
 // src/auth/auth.service.ts
-async register(registerDto: RegisterDto) {
+async register(registerDto: RegisterDto): Promise<{ access_token: string; refresh_token: string; user: any }> {
   // Check if user already exists
   const existingUser = await this.usersRepository.findOne({
     where: { email: registerDto.email },
@@ -139,8 +140,13 @@ async register(registerDto: RegisterDto) {
     const tokens = await this.generateTokens(user);
 
     return {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     };
   } catch (error: any) {
     // Rollback on error
@@ -154,12 +160,21 @@ async register(registerDto: RegisterDto) {
 }
   // ─── Login ───────────────────────────────────────────────────────────────
   // This is called AFTER LocalStrategy already validated the user
-  async login(user: User): Promise<{ access_token: string; refresh_token: string }> {
-    return this.generateTokens(user);
+  async login(user: User): Promise<{ access_token: string; refresh_token: string; user: any }> {
+    const tokens = await this.generateTokens(user);
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
   }
 
   // ─── Refresh Token ───────────────────────────────────────────────────────
-  async refreshTokens(refreshToken: string): Promise<{ access_token: string; refresh_token: string }> {
+  async refreshTokens(refreshToken: string): Promise<{ access_token: string; refresh_token: string; user: any }> {
     // Find the refresh token in DB
     const tokenRecord = await this.refreshTokenRepo.findOne({
       where: { token: refreshToken },
@@ -175,7 +190,16 @@ async register(registerDto: RegisterDto) {
     await this.refreshTokenRepo.update(tokenRecord.id, { is_revoked: true });
 
     // Issue brand new tokens
-    return this.generateTokens(tokenRecord.user);
+    const tokens = await this.generateTokens(tokenRecord.user);
+    return {
+      ...tokens,
+      user: {
+        id: tokenRecord.user.id,
+        email: tokenRecord.user.email,
+        name: tokenRecord.user.name,
+        role: tokenRecord.user.role,
+      },
+    };
   }
 
   // ─── Logout ──────────────────────────────────────────────────────────────
@@ -270,37 +294,84 @@ const access_token = this.jwtService.sign(payload, {
       return; // Silently succeed (don't reveal if email exists)
     }
 
-    const token = uuidv4();
+    // Generate secure random token
+    const crypto = await import('crypto');
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    
+    // Hash the token before storing
+    const hashedToken = await bcrypt.hash(rawToken, 10);
+    
+    // Set expiry to 1 hour from now
     const expires_at = new Date();
-    expires_at.setHours(expires_at.getHours() + 1); // 1 hour
+    expires_at.setHours(expires_at.getHours() + 1);
 
-    await this.resetTokenRepo.save({
-      token,
-      user_id: user.id,
-      type: TokenType.PASSWORD_RESET,
-      expires_at,
+    // Update user with reset token and expiry
+    await this.usersRepository.update(user.id, {
+      password_reset_token: hashedToken,
+      password_reset_expires: expires_at,
     });
 
-    // ✅ NEW: Send actual email instead of console.log
-    await this.emailService.sendPasswordResetEmail(user.email, token, user.name);
+    // Send email with raw token (not hashed)
+    await this.emailService.sendPasswordResetEmail(user.email, rawToken, user.name);
   }
+
   // ─── Reset Password ──────────────────────────────────────────────────────
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    const tokenRecord = await this.resetTokenRepo.findOne({
-      where: { token, type: TokenType.PASSWORD_RESET },
-      relations: ['user'],
+    // Find all users with non-null reset tokens that haven't expired
+    const users = await this.usersRepository.find({
+      where: {
+        password_reset_token: Not(IsNull()),
+      },
     });
 
-    if (!tokenRecord || tokenRecord.is_used || tokenRecord.expires_at < new Date()) {
+    // Find the user whose hashed token matches the provided token
+    let matchedUser: User | null = null;
+    for (const user of users) {
+      if (user.password_reset_token && user.password_reset_expires) {
+        // Check if token matches and hasn't expired
+        const tokenMatches = await bcrypt.compare(token, user.password_reset_token);
+        const notExpired = user.password_reset_expires > new Date();
+        
+        if (tokenMatches && notExpired) {
+          matchedUser = user;
+          break;
+        }
+      }
+    }
+
+    if (!matchedUser) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
+    // Hash the new password
     const password_hash = await bcrypt.hash(newPassword, 12);
-    await this.usersService.updateUser(tokenRecord.user.id, {
-      ...tokenRecord.user,
+    
+    // Update password and clear reset token fields
+    await this.usersRepository.update(matchedUser.id, {
       password_hash,
+      password_reset_token: () => 'NULL',
+      password_reset_expires: () => 'NULL',
     });
+  }
 
-    await this.resetTokenRepo.update(tokenRecord.id, { is_used: true });
+  // ─── Change Password (for logged-in users) ──────────────────────────────
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    // Find user
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    // Hash new password
+    const password_hash = await bcrypt.hash(newPassword, 12);
+
+    // Update password
+    await this.usersRepository.update(userId, { password_hash });
   }
 }

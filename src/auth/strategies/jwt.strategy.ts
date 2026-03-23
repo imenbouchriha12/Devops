@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Request } from 'express';
 import { UsersService } from '../../users/users.service';
 
 @Injectable()
@@ -12,7 +13,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly usersService: UsersService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        // First try to extract from cookie
+        (request: Request) => {
+          return request?.cookies?.access_token;
+        },
+        // Fall back to Authorization header for API clients
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       // The ! at the end tells TypeScript "I guarantee this is not undefined"
       // It will crash at runtime if JWT_ACCESS_SECRET is missing from .env,

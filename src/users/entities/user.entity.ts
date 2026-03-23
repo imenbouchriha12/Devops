@@ -45,6 +45,12 @@ export class User {
   @Column({ nullable: true })
   job_title?: string;
 
+  @Column({ nullable: true })
+  password_reset_token?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  password_reset_expires?: Date;
+
   @CreateDateColumn()
   created_at!: Date;
 
