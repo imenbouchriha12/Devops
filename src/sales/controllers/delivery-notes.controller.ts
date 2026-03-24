@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -78,5 +79,15 @@ export class DeliveryNotesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.cancel(businessId, id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delete(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.delete(businessId, id);
   }
 }

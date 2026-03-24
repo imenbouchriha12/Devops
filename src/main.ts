@@ -1,43 +1,42 @@
 // src/main.ts
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { join } from 'path';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  app.useStaticAssets(join(__dirname, '..', '..', 'public'));
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist:        true,              // supprime les champs non déclarés dans les DTOs
-      forbidNonWhitelisted: false,         // ne rejette pas, supprime juste
-      transform:        true,             // transforme automatiquement les types (string→number)
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
       transformOptions: { enableImplicitConversion: true },
       exceptionFactory: (errors) => {
-        // Messages d'erreur structurés et lisibles
         const messages = errors.map(err => {
           const constraints = Object.values(err.constraints ?? {});
           return {
-            field:    err.property,
+            field: err.property,
             messages: constraints,
           };
         });
         return new BadRequestException({
           statusCode: 400,
-          error:      'Validation échouée',
-          details:    messages,
-          // Premier message pour compatibilité avec l'ancien format
-          message:    messages.flatMap(m => m.messages),
+          error: 'Validation échouée',
+          details: messages,
+          message: messages.flatMap(m => m.messages),
         });
       },
     }),
   );
- 
 
-  // Allow React dev server to hit this backend.
-  // Vite defaults to port 5173. If yours is different, change it here.
   app.enableCors({
     origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

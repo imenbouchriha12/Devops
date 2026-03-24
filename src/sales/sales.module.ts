@@ -1,5 +1,4 @@
-// src/sales/sales.module.ts
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -14,6 +13,7 @@ import { StockExitItem } from './entities/stock-exit-item.entity';
 import { Invoice } from './entities/invoice.entity';
 import { InvoiceItem } from './entities/invoice-item.entity';
 import { RecurringInvoice } from './entities/recurring-invoice.entity';
+import { ClientPortalToken } from './entities/client-portal-token.entity';
 import { QuotesService } from './services/quotes.service';
 import { SalesOrdersService } from './services/sales-orders.service';
 import { DeliveryNotesService } from './services/delivery-notes.service';
@@ -23,12 +23,18 @@ import { SalesOcrService } from './services/sales-ocr.service';
 import { InvoiceCronService } from './services/invoice-cron.service';
 import { RecurringInvoicesService } from './services/recurring-invoices.service';
 import { RecurringInvoiceCronService } from './services/recurring-invoice-cron.service';
+import { ClientPortalService } from './services/client-portal.service';
+import { SalesDashboardService } from './services/sales-dashboard.service';
 import { QuotesController } from './controllers/quotes.controller';
 import { SalesOrdersController } from './controllers/sales-orders.controller';
 import { DeliveryNotesController } from './controllers/delivery-notes.controller';
 import { InvoicesController } from './controllers/invoices.controller';
 import { SalesOcrController } from './controllers/sales-ocr.controller';
 import { RecurringInvoicesController } from './controllers/recurring-invoices.controller';
+import { ClientPortalController } from './controllers/client-portal.controller';
+import { SalesDashboardController } from './controllers/sales-dashboard.controller';
+import { Client } from '../clients/entities/client.entity';
+import { Business } from '../businesses/entities/business.entity';
 
 @Module({
   imports: [
@@ -46,6 +52,9 @@ import { RecurringInvoicesController } from './controllers/recurring-invoices.co
       Invoice,
       InvoiceItem,
       RecurringInvoice,
+      ClientPortalToken,
+      Client,
+      Business,
     ]),
   ],
   providers: [
@@ -58,6 +67,8 @@ import { RecurringInvoicesController } from './controllers/recurring-invoices.co
     InvoiceCronService,
     RecurringInvoicesService,
     RecurringInvoiceCronService,
+    ClientPortalService,
+    SalesDashboardService,
   ],
   controllers: [
     QuotesController,
@@ -66,6 +77,8 @@ import { RecurringInvoicesController } from './controllers/recurring-invoices.co
     InvoicesController,
     SalesOcrController,
     RecurringInvoicesController,
+    ClientPortalController,
+    SalesDashboardController,
   ],
   exports: [
     QuotesService,
@@ -75,7 +88,7 @@ import { RecurringInvoicesController } from './controllers/recurring-invoices.co
     SalesMailService,
     SalesOcrService,
     RecurringInvoicesService,
+    ClientPortalService,
   ],
 })
 export class SalesModule {}
-
