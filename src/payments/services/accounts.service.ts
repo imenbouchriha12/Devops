@@ -1,3 +1,4 @@
+// src/accounts/services/accounts.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -9,7 +10,6 @@ import { Account } from '../entities/account.entity';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
 
-
 @Injectable()
 export class AccountsService {
   constructor(
@@ -18,7 +18,6 @@ export class AccountsService {
   ) {}
 
   async create(businessId: string, dto: CreateAccountDto): Promise<Account> {
-    // Si is_default = true, retirer le défaut des autres
     if (dto.is_default) {
       await this.accountRepo.update(
         { business_id: businessId, is_default: true },
@@ -58,7 +57,6 @@ export class AccountsService {
   ): Promise<Account> {
     const account = await this.findOne(businessId, id);
 
-    // Si on set is_default = true, retirer le défaut des autres
     if (dto.is_default) {
       await this.accountRepo.update(
         { business_id: businessId, is_default: true },
@@ -66,7 +64,17 @@ export class AccountsService {
       );
     }
 
-    Object.assign(account, dto);
+    // Destructure to handle balances explicitly:
+    // - opening_balance is NEVER changed after creation
+    // - current_balance is updated only if explicitly provided
+    const { opening_balance, current_balance, ...safeDto } = dto as any;
+
+    Object.assign(account, safeDto);
+
+    if (current_balance !== undefined) {
+      account.current_balance = current_balance;
+    }
+
     return this.accountRepo.save(account);
   }
 
