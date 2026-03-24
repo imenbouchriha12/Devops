@@ -16,6 +16,8 @@ import { PurchasesModule }            from 'src/Purchases/purchases.module';
 import { PurchaseInvoice } from 'src/Purchases/entities/purchase-invoice.entity';
 import { TransactionsController } from './controllers/transactions.controller';
 import { TransactionsService } from './services/transactions.service';
+import { TransfersController } from './controllers/transfers.controller';
+import { TransfersService } from './services/transfers.service';
 
 @Module({
   imports: [
@@ -34,12 +36,14 @@ import { TransactionsService } from './services/transactions.service';
     PaymentsController,
     SupplierPaymentsController,
     TransactionsController,
+    TransfersController,
   ],
   providers: [
     AccountsService,
     PaymentsService,
     SupplierPaymentsService,
     TransactionsService,
+    TransfersService,
   ],
   exports: [
     AccountsService,
