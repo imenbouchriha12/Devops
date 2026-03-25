@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { SalesOcrAiService, OcrAiResult } from './sales-ocr-ai.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -29,13 +30,20 @@ export interface SalesDocumentOcrResult {
   raw_text: string;
   confidence: number;
   processing_time_ms: number;
+  // Nouveaux champs AI
+  ai_enrichment?: OcrAiResult;
+  vision_enrichment?: OcrAiResult;
+  suggested_dto?: any;
 }
 
 @Injectable()
 export class SalesOcrService {
   private readonly logger = new Logger(SalesOcrService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly ocrAiService: SalesOcrAiService,
+  ) {}
 
   async extractFromFile(filePath: string): Promise<SalesDocumentOcrResult> {
     const start = Date.now();
@@ -71,6 +79,138 @@ export class SalesOcrService {
     );
 
     return result;
+  }
+
+  /**
+   * Nouvelle méthode avec enrichissement AI
+   * Combine Tesseract OCR + Gemini AI pour meilleure précision
+   */
+  async extractAndEnrich(
+    fileBuffer: Buffer,
+    mimeType: string,
+  ): Promise<SalesDocumentOcrResult> {
+    const start = Date.now();
+
+    // 1. Sauvegarder temporairement le fichier
+    const tempDir = path.join(process.cwd(), 'uploads', 'sales-ocr-temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const ext = mimeType === 'application/pdf' ? '.pdf' : '.png';
+    const tempFile = path.join(tempDir, `temp_${Date.now()}${ext}`);
+    fs.writeFileSync(tempFile, fileBuffer);
+
+    try {
+      // 2. OCR classique avec Tesseract
+      let imagePath = tempFile;
+      if (ext === '.pdf') {
+        imagePath = await this.convertPdfToImage(tempFile);
+      }
+
+      const rawText = await this.runTesseract(imagePath);
+
+      if (!rawText || rawText.trim().length < 10) {
+        throw new BadRequestException(
+          'Aucun texte extrait — vérifiez que l\'image est lisible et nette.',
+        );
+      }
+
+      // 3. Parser classique
+      const result = this.parseSalesDocument(rawText);
+
+      // 4. Enrichissement avec Gemini AI
+      const aiEnrichment = await this.ocrAiService.enrichOcrText(rawText);
+      result.ai_enrichment = aiEnrichment;
+
+      // 5. Si image, utiliser aussi Vision API pour confirmation
+      if (mimeType.startsWith('image/')) {
+        const visionEnrichment = await this.ocrAiService.analyzeImageBuffer(
+          fileBuffer,
+          mimeType,
+        );
+        result.vision_enrichment = visionEnrichment;
+      }
+
+      // 6. Construire le DTO suggéré basé sur l'enrichissement AI
+      result.suggested_dto = this.buildSuggestedDto(aiEnrichment);
+
+      result.processing_time_ms = Date.now() - start;
+
+      this.logger.log(
+        `OCR + AI enrichissement terminé en ${result.processing_time_ms}ms — Type: ${result.document_type} (AI: ${aiEnrichment.documentType})`,
+      );
+
+      return result;
+
+    } finally {
+      // Nettoyer les fichiers temporaires
+      try {
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+        const pngFile = tempFile.replace(ext, '_page1.png');
+        if (fs.existsSync(pngFile)) fs.unlinkSync(pngFile);
+      } catch (err) {
+        this.logger.warn(`Erreur lors du nettoyage des fichiers temporaires: ${err}`);
+      }
+    }
+  }
+
+  /**
+   * Construit un DTO pré-rempli basé sur les données AI
+   */
+  private buildSuggestedDto(aiResult: OcrAiResult): any {
+    const fields = aiResult.mappedFields;
+
+    this.logger.log(`Building suggested DTO - Type: ${aiResult.documentType}`);
+    this.logger.log(`Mapped fields: ${JSON.stringify(fields)}`);
+
+    if (aiResult.documentType === 'INVOICE') {
+      const dto = {
+        clientId: null, // À lier manuellement
+        documentNumber: fields.documentNumber || null,
+        date: fields.date || null,
+        dueDate: fields.dueDate || null,
+        items: fields.items || [],
+        subtotalHt: fields.subtotalHt || null,
+        taxAmount: fields.taxAmount || null,
+        totalTtc: fields.totalTtc || null,
+        notes: fields.notes || null,
+      };
+      this.logger.log(`Invoice DTO built: ${JSON.stringify(dto)}`);
+      return dto;
+    }
+
+    if (aiResult.documentType === 'QUOTE') {
+      return {
+        clientId: null,
+        quoteDate: fields.date || null,
+        validUntil: fields.dueDate || null,
+        items: fields.items || [],
+        notes: fields.notes || null,
+      };
+    }
+
+    if (aiResult.documentType === 'DELIVERY_NOTE') {
+      return {
+        clientId: null,
+        deliveryDate: fields.date || null,
+        items: fields.items || [],
+        notes: fields.notes || null,
+      };
+    }
+
+    if (aiResult.documentType === 'ORDER') {
+      return {
+        clientId: null,
+        orderDate: fields.date || null,
+        expectedDelivery: fields.dueDate || null,
+        items: fields.items || [],
+        notes: fields.notes || null,
+      };
+    }
+
+    this.logger.log(`Unknown document type, returning raw fields`);
+    return fields;
   }
 
   // ─── Tesseract CLI ────────────────────────────────────────────────────────

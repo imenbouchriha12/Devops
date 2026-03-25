@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { DeliveryNote } from '../entities/delivery-note.entity';
 import { DeliveryNoteItem } from '../entities/delivery-note-item.entity';
+import { SalesOrder, SalesOrderStatus } from '../entities/sales-order.entity';
 import { CreateDeliveryNoteDto } from '../dto/create-delivery-note.dto';
 import { UpdateDeliveryNoteDto } from '../dto/update-delivery-note.dto';
 
@@ -133,9 +134,27 @@ export class DeliveryNotesService {
 
   async markDelivered(businessId: string, id: string): Promise<DeliveryNote> {
     const note = await this.findOne(businessId, id);
-    note.status = 'delivered';
-    await this.noteRepo.save(note);
-    return this.findOne(businessId, id);
+    
+    return this.dataSource.transaction(async (manager) => {
+      // Mark delivery note as delivered
+      note.status = 'delivered';
+      await manager.save(DeliveryNote, note);
+      
+      // If linked to a sales order, mark the order as delivered too
+      if (note.salesOrderId) {
+        const salesOrder = await manager.findOne(SalesOrder, {
+          where: { id: note.salesOrderId, businessId },
+        });
+        
+        if (salesOrder && salesOrder.status === SalesOrderStatus.IN_PROGRESS) {
+          salesOrder.status = SalesOrderStatus.DELIVERED;
+          salesOrder.deliveryDate = new Date();
+          await manager.save(SalesOrder, salesOrder);
+        }
+      }
+      
+      return this.findOne(businessId, id);
+    });
   }
 
   async cancel(businessId: string, id: string): Promise<DeliveryNote> {
@@ -143,5 +162,17 @@ export class DeliveryNotesService {
     note.status = 'cancelled';
     await this.noteRepo.save(note);
     return this.findOne(businessId, id);
+  }
+
+  async delete(businessId: string, id: string): Promise<void> {
+    const note = await this.findOne(businessId, id);
+    
+    return this.dataSource.transaction(async (manager) => {
+      // Delete delivery note items first
+      await manager.delete(DeliveryNoteItem, { deliveryNoteId: id });
+      
+      // Then delete the delivery note
+      await manager.delete(DeliveryNote, { id, businessId });
+    });
   }
 }

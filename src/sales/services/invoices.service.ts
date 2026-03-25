@@ -156,7 +156,13 @@ export class InvoicesService {
     });
   }
 
-  async sendByEmail(businessId: string, id: string, recipientEmail?: string): Promise<Invoice> {
+  async sendByEmail(
+    businessId: string, 
+    id: string, 
+    recipientEmail?: string,
+    customSubject?: string,
+    customBody?: string
+  ): Promise<Invoice> {
     const invoice = await this.findOne(businessId, id);
     
     if (invoice.status !== InvoiceStatus.DRAFT && invoice.status !== InvoiceStatus.SENT) {
@@ -170,7 +176,7 @@ export class InvoicesService {
       throw new BadRequestException('Aucune adresse email fournie');
     }
 
-    await this.mailService.sendInvoiceEmail(invoice, email);
+    await this.mailService.sendInvoiceEmail(invoice, email, customSubject, customBody, undefined);
 
     if (invoice.status === InvoiceStatus.DRAFT) {
       return this.send(businessId, id);
