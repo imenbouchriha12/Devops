@@ -59,8 +59,7 @@ export class PurchaseMailService {
       supplier.id,
       po.id,
     );
-    const portalUrl = `${this.frontendUrl}/supplier-portal?token=${portalToken}`;
-
+    const portalUrl = `${this.frontendUrl}/supplier-portal?token=${encodeURIComponent(portalToken)}`;
     const itemsHtml = (po.items ?? []).map(item => `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;">${item.description}</td>

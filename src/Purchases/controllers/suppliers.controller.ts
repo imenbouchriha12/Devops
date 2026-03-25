@@ -14,12 +14,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard }        from '@nestjs/passport';
-import { Roles } from 'src/auth/decorators/roles.decorators';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { CreateSupplierDto } from 'src/Purchases/dto/create-supplier.dto';
-import { QuerySuppliersDto, UpdateSupplierDto } from 'src/Purchases/dto/update-supplier.dto';
-import { SuppliersService } from 'src/Purchases/services/suppliers.service';
-import { Role } from 'src/users/enums/role.enum';
+import { Roles } from '../../auth/decorators/roles.decorators';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { CreateSupplierDto } from '../../Purchases/dto/create-supplier.dto';
+import { QuerySuppliersDto, UpdateSupplierDto } from '../../Purchases/dto/update-supplier.dto';
+import { SuppliersService } from '../../Purchases/services/suppliers.service';
+import { Role } from '../../users/enums/role.enum';
 
 
 @Controller('businesses/:businessId/suppliers')

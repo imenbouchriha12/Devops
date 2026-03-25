@@ -10,7 +10,7 @@ import { AuthGuard }               from '@nestjs/passport';
 import { extname, join }         from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard('jwt'))
 @Controller('businesses/:businessId/upload')
 export class UploadController {
 

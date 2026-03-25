@@ -24,13 +24,12 @@ export class SupplierPortalToken {
   @JoinColumn({ name: 'supplier_id' })
   supplier: Supplier;
 
-  // FIX : string | undefined (pas null) — TypeORM DeepPartial n'accepte pas null
-  @Column({ nullable: true })
-  supplier_po_id: string | undefined;
+    @Column({ type: 'uuid', nullable: true })
+    supplier_po_id: string | null;
 
-  @ManyToOne(() => SupplierPO, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'supplier_po_id' })
-  supplier_po: SupplierPO;
+    @ManyToOne(() => SupplierPO, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'supplier_po_id' })
+    supplier_po: SupplierPO | null;
 
   @Column({ type: 'timestamp' })
   expires_at: Date;

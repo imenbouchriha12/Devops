@@ -192,6 +192,8 @@ async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
 
     if (dto.paid_amount >= Number(inv.net_amount)) {
       inv.status = InvoiceStatus.PAID;
+    }if (dto.paid_amount < 0) {
+      throw new BadRequestException('Le montant payé ne peut pas être négatif.');
     } else if (dto.paid_amount > 0) {
       inv.status = InvoiceStatus.PARTIALLY_PAID;
     }
