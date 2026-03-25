@@ -1,9 +1,10 @@
 // src/auth/auth.service.ts
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
@@ -71,7 +72,7 @@ async validateUser(email: string, password: string): Promise<User | null> {
  
 
 // src/auth/auth.service.ts
-async register(registerDto: RegisterDto) {
+async register(registerDto: RegisterDto, res: Response) {
   // Check if user already exists
   const existingUser = await this.usersRepository.findOne({
     where: { email: registerDto.email },
@@ -91,9 +92,10 @@ async register(registerDto: RegisterDto) {
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const user = queryRunner.manager.create(User, {
       email: registerDto.email,
-      name: registerDto.name,
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
       password_hash: hashedPassword,
-      phone_number: registerDto.phone_number,
+      phone: registerDto.phone_number,
       role: Role.BUSINESS_OWNER,
       is_verified: false,
       is_suspended: false,
@@ -135,12 +137,18 @@ async register(registerDto: RegisterDto) {
     // Commit transaction
     await queryRunner.commitTransaction();
 
-    // 5. Generate tokens
-    const tokens = await this.generateTokens(user);
+    // 5. Generate tokens and set cookies
+    await this.generateTokensAndSetCookies(user, res);
 
     return {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      message: 'Registration successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
     };
   } catch (error: any) {
     // Rollback on error
@@ -154,12 +162,23 @@ async register(registerDto: RegisterDto) {
 }
   // ─── Login ───────────────────────────────────────────────────────────────
   // This is called AFTER LocalStrategy already validated the user
-  async login(user: User): Promise<{ access_token: string; refresh_token: string }> {
-    return this.generateTokens(user);
+  async login(user: User, res: Response): Promise<{ message: string; user: any }> {
+    await this.generateTokensAndSetCookies(user, res);
+    
+    return {
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+    };
   }
 
   // ─── Refresh Token ───────────────────────────────────────────────────────
-  async refreshTokens(refreshToken: string): Promise<{ access_token: string; refresh_token: string }> {
+  async refreshTokens(refreshToken: string, res: Response): Promise<{ message: string; user: any }> {
     // Find the refresh token in DB
     const tokenRecord = await this.refreshTokenRepo.findOne({
       where: { token: refreshToken },
@@ -168,14 +187,25 @@ async register(registerDto: RegisterDto) {
 
     // If not found, revoked, or expired → reject
     if (!tokenRecord || tokenRecord.is_revoked || tokenRecord.expires_at < new Date()) {
-      throw new BadRequestException('Invalid or expired refresh token');
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     // Revoke the old refresh token (rotation — each refresh gives a new one)
     await this.refreshTokenRepo.update(tokenRecord.id, { is_revoked: true });
 
-    // Issue brand new tokens
-    return this.generateTokens(tokenRecord.user);
+    // Issue brand new tokens and set cookies
+    await this.generateTokensAndSetCookies(tokenRecord.user, res);
+
+    return {
+      message: 'Tokens refreshed successfully',
+      user: {
+        id: tokenRecord.user.id,
+        email: tokenRecord.user.email,
+        firstName: tokenRecord.user.firstName,
+        lastName: tokenRecord.user.lastName,
+        role: tokenRecord.user.role,
+      },
+    };
   }
 
   // ─── Logout ──────────────────────────────────────────────────────────────
@@ -240,6 +270,30 @@ async register(registerDto: RegisterDto) {
     return { access_token, refresh_token };
   }
 
+  // ─── Generate Tokens and Set HTTP-only Cookies ───────────────────────────
+  private async generateTokensAndSetCookies(user: User, res: Response): Promise<void> {
+    const { access_token, refresh_token } = await this.generateTokens(user);
+    
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    
+    // Set access_token cookie (15 minutes)
+    res.cookie('access_token', access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax', // 'lax' for localhost development
+      maxAge: 15 * 60 * 1000, // 15 minutes in milliseconds
+    });
+    
+    // Set refresh_token cookie (7 days)
+    res.cookie('refresh_token', refresh_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax', // 'lax' for localhost development
+      path: '/auth/refresh',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    });
+  }
+
   // ─── Update Profile ──────────────────────────────────────────────────────
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {
     const user = await this.usersService.findById(userId);
@@ -257,8 +311,12 @@ async register(registerDto: RegisterDto) {
       user.is_verified = false; // New email needs verification
     }
 
-    if (dto.name) {
-      user.name = dto.name;
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName;
+    }
+
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName;
     }
 
     if (dto.password) {
@@ -283,7 +341,8 @@ async register(registerDto: RegisterDto) {
     await this.resetTokenRepo.update(tokenRecord.id, { is_used: true });
 
     // ✅ NEW: Send welcome email
-    await this.emailService.sendWelcomeEmail(tokenRecord.user.email, tokenRecord.user.name);
+    const fullName = `${tokenRecord.user.firstName} ${tokenRecord.user.lastName}`;
+    await this.emailService.sendWelcomeEmail(tokenRecord.user.email, fullName);
   }
   // ─── Forgot Password ─────────────────────────────────────────────────────
   async forgotPassword(email: string): Promise<void> {
@@ -305,7 +364,8 @@ async register(registerDto: RegisterDto) {
     });
 
     // ✅ NEW: Send actual email instead of console.log
-    await this.emailService.sendPasswordResetEmail(user.email, token, user.name);
+    const fullName = `${user.firstName} ${user.lastName}`;
+    await this.emailService.sendPasswordResetEmail(user.email, token, fullName);
   }
   // ─── Reset Password ──────────────────────────────────────────────────────
   async resetPassword(token: string, newPassword: string): Promise<void> {

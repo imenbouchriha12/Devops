@@ -1,6 +1,3 @@
-
-
-
 // src/auth/dto/register.dto.ts
 import { 
   IsEmail, 
@@ -18,7 +15,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-// Nested DTOs for structured data
+// Nested DTOs (unchanged)
 class TenantInfoDto {
   @IsString()
   @MinLength(2)
@@ -92,16 +89,21 @@ class TaxRateInfoDto {
   is_default: boolean;
 }
 
-// Main Register DTO
+// Updated Main Register DTO
 export class RegisterDto {
-  // User Info
+  // User Info - CHANGED from 'name' to firstName + lastName
   @IsEmail({}, { message: 'Must be a valid email address' })
   email!: string;
 
   @IsString()
-  @MinLength(2, { message: 'Name must be at least 2 characters' })
-  @MaxLength(100)
-  name!: string;
+  @MinLength(2, { message: 'First name must be at least 2 characters' })
+  @MaxLength(50)
+  firstName!: string;
+
+  @IsString()
+  @MinLength(2, { message: 'Last name must be at least 2 characters' })
+  @MaxLength(50)
+  lastName!: string;
 
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters' })
@@ -112,26 +114,19 @@ export class RegisterDto {
   @IsString()
   phone_number?: string;
 
-  // Tenant Info
+  // Tenant, Business, TaxRate remain the same
   @IsObject()
   @ValidateNested()
   @Type(() => TenantInfoDto)
   tenant!: TenantInfoDto;
 
-  // Business Info
   @IsObject()
   @ValidateNested()
   @Type(() => BusinessInfoDto)
   business!: BusinessInfoDto;
 
-  // Tax Rate Info
   @IsObject()
   @ValidateNested()
   @Type(() => TaxRateInfoDto)
   taxRate!: TaxRateInfoDto;
 }
-
-
-
-
-
