@@ -20,6 +20,9 @@ import { DeliveryNotesService } from './services/delivery-notes.service';
 import { InvoicesService } from './services/invoices.service';
 import { SalesMailService } from './services/sales-mail.service';
 import { SalesOcrService } from './services/sales-ocr.service';
+import { SalesOcrAiService } from './services/sales-ocr-ai.service';
+import { SalesDashboardAiService } from './services/sales-dashboard-ai.service';
+import { SalesEmailAiService } from './services/sales-email-ai.service';
 import { InvoiceCronService } from './services/invoice-cron.service';
 import { RecurringInvoicesService } from './services/recurring-invoices.service';
 import { RecurringInvoiceCronService } from './services/recurring-invoice-cron.service';
@@ -64,6 +67,9 @@ import { Business } from '../businesses/entities/business.entity';
     InvoicesService,
     SalesMailService,
     SalesOcrService,
+    SalesOcrAiService,
+    SalesDashboardAiService,
+    SalesEmailAiService,
     InvoiceCronService,
     RecurringInvoicesService,
     RecurringInvoiceCronService,
@@ -87,6 +93,8 @@ import { Business } from '../businesses/entities/business.entity';
     InvoicesService,
     SalesMailService,
     SalesOcrService,
+    SalesOcrAiService,
+    SalesDashboardAiService,
     RecurringInvoicesService,
     ClientPortalService,
   ],

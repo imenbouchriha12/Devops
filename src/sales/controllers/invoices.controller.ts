@@ -77,9 +77,9 @@ export class InvoicesController {
   async sendByEmail(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { email?: string },
+    @Body() body: { email?: string; subject?: string; body?: string },
   ) {
-    return this.service.sendByEmail(businessId, id, body.email);
+    return this.service.sendByEmail(businessId, id, body.email, body.subject, body.body);
   }
 
   @Post(':id/send-reminder')
