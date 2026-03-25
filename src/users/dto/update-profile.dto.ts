@@ -1,5 +1,5 @@
-// src/auth/dto/update-profile.dto.ts
-import { IsEmail, IsString, IsOptional, MinLength, MaxLength, IsIn } from 'class-validator';
+// src/users/dto/update-profile.dto.ts
+import { IsString, IsOptional, IsEmail, MinLength, MaxLength, IsIn } from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -13,10 +13,6 @@ export class UpdateProfileDto {
   @MinLength(2)
   @MaxLength(50)
   lastName?: string;
-
-  @IsOptional()
-  @IsEmail()
-  email?: string;
 
   @IsOptional()
   @IsString()
@@ -36,10 +32,4 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   timezone?: string;
-
-  @IsOptional()
-  @IsString()
-  @MinLength(8)
-  @MaxLength(100)
-  password?: string;
 }
