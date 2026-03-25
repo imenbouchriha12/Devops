@@ -4,9 +4,9 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CreateSupplierDto } from 'src/Purchases/dto/create-supplier.dto';
-import { QuerySuppliersDto, UpdateSupplierDto } from 'src/Purchases/dto/update-supplier.dto';
-import { Supplier } from 'src/Purchases/entities/supplier.entity';
+import { CreateSupplierDto } from '../../Purchases/dto/create-supplier.dto';
+import { QuerySuppliersDto, UpdateSupplierDto } from '../../Purchases/dto/update-supplier.dto';
+import { Supplier } from '../../Purchases/entities/supplier.entity';
 import { Repository, ILike } from 'typeorm';
 
 
