@@ -14,7 +14,7 @@ import { SupplierPO }      from '../entities/supplier-po.entity';
 import { Supplier }        from '../entities/supplier.entity';
 import { InvoiceStatus }   from '../enum/invoice-status.enum';
 import { POStatus }        from '../enum/po-status.enum';
-import { SupplierPayment } from 'src/payments/entities/supplier-payment.entity';
+import { SupplierPayment } from '../../payments/entities/supplier-payment.entity';
 
 // Seuils configurables
 const THRESHOLDS = {
@@ -96,14 +96,15 @@ export class PurchaseAlertsService {
         .getMany();
 
       for (const inv of invoices) {
-        const existing = await this.alertRepo.findOne({
+        const existingAlerts = await this.alertRepo.find({
           where: {
-            entity_id:  inv.id,
-            type:       AlertType.INVOICE_DUE_SOON,
-            status:     In([AlertStatus.UNREAD, AlertStatus.READ]),
+            type: AlertType.INVOICE_DUE_SOON,
+            status: In([AlertStatus.UNREAD, AlertStatus.READ]),
           },
         });
-        if (existing) continue;
+
+        const existingIds = new Set(existingAlerts.map(a => a.entity_id));
+      if (existingIds.has(inv.id)) continue;
 
         const remaining = Math.round(
           (Number(inv.net_amount) - Number(inv.paid_amount)) * 1000,
@@ -143,6 +144,7 @@ export class PurchaseAlertsService {
     for (const po of pos) {
       const existing = await this.alertRepo.findOne({
         where: {
+          business_id: po.business_id,
           entity_id: po.id,
           type:      AlertType.PO_NOT_RECEIVED,
           status:    In([AlertStatus.UNREAD, AlertStatus.READ]),
@@ -187,6 +189,7 @@ export class PurchaseAlertsService {
     for (const po of pos) {
       const existing = await this.alertRepo.findOne({
         where: {
+          business_id: po.business_id,
           entity_id: po.id,
           type:      AlertType.PO_AWAITING_CONFIRM,
           status:    In([AlertStatus.UNREAD, AlertStatus.READ]),
@@ -197,7 +200,7 @@ export class PurchaseAlertsService {
             // APRÈS — fallback sur created_at si sent_at est null
             const sentDate  = po.sent_at ?? po.created_at;
             const daysSince = Math.floor(
-            (Date.now() - new Date(sentDate).getTime())
+              (Date.now() - new Date(sentDate).getTime()) / (1000 * 60 * 60 * 24)
             );
 
       await this.createAlert({
@@ -247,6 +250,7 @@ export class PurchaseAlertsService {
 
       const existing = await this.alertRepo.findOne({
         where: {
+          business_id: row.business_id,
           entity_id: row.supplier_id,
           type:      AlertType.SUPPLIER_HIGH_DEBT,
           status:    In([AlertStatus.UNREAD, AlertStatus.READ]),

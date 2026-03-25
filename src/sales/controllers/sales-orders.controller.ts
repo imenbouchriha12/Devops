@@ -108,6 +108,15 @@ export class SalesOrdersController {
     return this.service.convertToInvoice(businessId, id);
   }
 
+  @Post(':id/send-email')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT)
+  async sendEmail(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.sendOrderConfirmationEmail(businessId, id);
+  }
+
   @Delete(':id')
   @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)

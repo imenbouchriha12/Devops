@@ -14,18 +14,20 @@ import { SupplierPOItem }  from './supplier-po-item.entity';
 import { GoodsReceipt }    from './goods-receipt.entity';
 import { PurchaseInvoice } from './purchase-invoice.entity';
 import { POStatus } from '../enum/po-status.enum';
-import { Business } from 'src/businesses/entities/business.entity';
+import { Business } from '../../businesses/entities/business.entity';
 
 @Entity('supplier_pos')
 @Index(['business_id', 'status'])
 @Index(['business_id', 'supplier_id'])
+@Index(['business_id', 'po_number'], { unique: true })
+
 export class SupplierPO {
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   // Numéro auto-généré : ACH-2024-0001
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50 })
   po_number: string;
 
   @Column({ type: 'enum', enum: POStatus, default: POStatus.DRAFT })

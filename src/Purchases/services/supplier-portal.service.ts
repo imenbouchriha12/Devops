@@ -16,7 +16,7 @@ import { Supplier }            from '../entities/supplier.entity';
 import { POStatus }            from '../enum/po-status.enum';
 import { InvoiceStatus }       from '../enum/invoice-status.enum';
 import { PurchaseMailService } from './purchase-mail.service';
-import { SupplierPayment } from 'src/payments/entities/supplier-payment.entity';
+import { SupplierPayment } from '../../payments/entities/supplier-payment.entity';
 
 @Injectable()
 export class SupplierPortalService {
