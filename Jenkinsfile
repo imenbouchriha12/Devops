@@ -17,7 +17,7 @@ pipeline {
         KUBECONFIG_CREDENTIALS_ID = 'kubeconfig-credentials'
 
         // ✅ Kubernetes
-        NAMESPACE = 'default'
+        NAMESPACE = 'production'
         DEPLOYMENT_NAME = 'backend'
     }
 
