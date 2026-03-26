@@ -7,6 +7,8 @@ import * as nodemailer        from 'nodemailer';
 import { SupplierPO }         from '../entities/supplier-po.entity';
 import { SupplierPortalService } from './supplier-portal.service';
 import { Business }           from '../../businesses/entities/business.entity';
+import { Tenant }             from '../../tenants/entities/tenant.entity';
+import { User }               from '../../users/entities/user.entity';
 
 @Injectable()
 export class PurchaseMailService {
@@ -16,15 +18,21 @@ export class PurchaseMailService {
   private readonly from:        string;
   private readonly frontendUrl: string;
 
- constructor(
-  private readonly config: ConfigService,
+  constructor(
+    private readonly config: ConfigService,
 
-  @Inject(forwardRef(() => SupplierPortalService))
-  private readonly portalService: SupplierPortalService,
+    @Inject(forwardRef(() => SupplierPortalService))
+    private readonly portalService: SupplierPortalService,
 
-  @InjectRepository(Business)
-  private readonly businessRepo: Repository<Business>,
-) {
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
+
+    @InjectRepository(Tenant)
+    private readonly tenantRepo: Repository<Tenant>,
+
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+  ) {
     this.from        = config.get<string>('GMAIL_USER', 'no-reply@platform.tn');
     this.frontendUrl = config.get<string>('FRONTEND_URL', 'http://localhost:5173');
 
@@ -37,6 +45,41 @@ export class PurchaseMailService {
     });
   }
 
+  // ─── Helper : résoudre les destinataires owner ────────────────────────────
+  // Retourne : business.email ET tenant owner email (dédupliqués, filtrés non-vides)
+  private async resolveOwnerRecipients(businessId: string): Promise<{
+    recipients: string;
+    businessName: string;
+    businessEmail: string;
+    businessPhone: string;
+    businessMF: string;
+  }> {
+    const business = await this.businessRepo.findOne({ where: { id: businessId } });
+    const businessName  = business?.name  ?? 'Notre société';
+    const businessEmail = business?.email ?? '';
+    const businessPhone = business?.phone ?? '';
+    const businessMF    = business?.tax_id ?? '';
+
+    // Chercher l'email du tenant owner via la table users
+    let ownerEmail = '';
+    if (business?.tenant_id) {
+      const tenant = await this.tenantRepo.findOne({ where: { id: business.tenant_id } });
+      if (tenant?.ownerId) {
+        const owner = await this.userRepo.findOne({ where: { id: tenant.ownerId } });
+        ownerEmail = owner?.email ?? '';
+      }
+    }
+
+    // Dédupliquer : si business.email === owner.email, n'envoyer qu'une fois
+    const emailSet = new Set<string>(
+      [businessEmail, ownerEmail].filter(e => !!e && e.includes('@'))
+    );
+    const recipients = Array.from(emailSet).join(',');
+
+    return { recipients, businessName, businessEmail, businessPhone, businessMF };
+  }
+
+  // ─── Envoi du BC au fournisseur ───────────────────────────────────────────
   async sendPurchaseOrder(po: SupplierPO): Promise<void> {
     const supplier = po.supplier;
 
@@ -47,12 +90,8 @@ export class PurchaseMailService {
       return;
     }
 
-    const business = await this.businessRepo.findOne({ where: { id: po.business_id } });
-
-    const businessName  = business?.name  ?? 'Notre société';
-    const businessEmail = business?.email ?? this.from;
-    const businessPhone = business?.phone ?? '';
-    const businessMF    = business?.tax_id ?? '';
+    const { businessName, businessEmail, businessPhone, businessMF } =
+      await this.resolveOwnerRecipients(po.business_id);
 
     const portalToken = await this.portalService.generatePortalToken(
       po.business_id,
@@ -60,6 +99,7 @@ export class PurchaseMailService {
       po.id,
     );
     const portalUrl = `${this.frontendUrl}/supplier-portal?token=${encodeURIComponent(portalToken)}`;
+
     const itemsHtml = (po.items ?? []).map(item => `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;">${item.description}</td>
@@ -113,8 +153,8 @@ export class PurchaseMailService {
         <td style="width:48%;vertical-align:top;padding:12px;background:#F9FAFB;border-radius:8px;">
           <p style="font-size:11px;color:#9CA3AF;text-transform:uppercase;margin:0 0 6px;letter-spacing:.05em;">À</p>
           <p style="font-weight:700;margin:0;font-size:14px;color:#111;">${supplier.name}</p>
-          ${supplier.email ? `<p style="margin:3px 0 0;font-size:13px;color:#555;">${supplier.email}</p>` : ''}
-          ${supplier.phone ? `<p style="margin:2px 0 0;font-size:13px;color:#555;">${supplier.phone}</p>` : ''}
+          ${supplier.email     ? `<p style="margin:3px 0 0;font-size:13px;color:#555;">${supplier.email}</p>`              : ''}
+          ${supplier.phone     ? `<p style="margin:2px 0 0;font-size:13px;color:#555;">${supplier.phone}</p>`              : ''}
           ${supplier.matricule_fiscal ? `<p style="margin:2px 0 0;font-size:11px;color:#9CA3AF;">MF : ${supplier.matricule_fiscal}</p>` : ''}
         </td>
       </tr>
@@ -204,25 +244,28 @@ export class PurchaseMailService {
     try {
       await this.transporter.sendMail({
         from:    `"${businessName}" <${this.from}>`,
+        replyTo: businessEmail || this.from,   // ← le fournisseur répond au business
         to:      supplier.email,
         subject: `Bon de Commande ${po.po_number} — ${businessName}`,
         html,
       });
-      this.logger.log(`Email BC ${po.po_number} envoyé à ${supplier.email} avec lien portail.`);
+      this.logger.log(`Email BC ${po.po_number} envoyé à ${supplier.email} (reply-to: ${businessEmail || this.from}).`);
     } catch (err: any) {
       this.logger.error(`Échec envoi email BC ${po.po_number} à ${supplier.email} : ${err.message}`);
     }
   }
 
+  // ─── Notification owner : BC confirmé ────────────────────────────────────
   async sendPOConfirmedToOwner(po: SupplierPO): Promise<void> {
-    const business = await this.businessRepo.findOne({ where: { id: po.business_id } });
-    const ownerEmail = business?.email;
-    if (!ownerEmail) {
-      this.logger.warn(`BC ${po.po_number} confirmé mais pas d'email owner trouvé`);
+    const { recipients, businessName } = await this.resolveOwnerRecipients(po.business_id);
+
+    if (!recipients) {
+      this.logger.warn(`BC ${po.po_number} confirmé — aucun email destinataire trouvé (business.email et owner.email vides).`);
       return;
     }
 
     const supplier = po.supplier;
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -251,36 +294,45 @@ export class PurchaseMailService {
         <tr><td style="color:#166534;padding:3px 0;"><strong>N° BC</strong></td><td style="text-align:right;color:#166534;">${po.po_number}</td></tr>
         <tr><td style="color:#166534;padding:3px 0;"><strong>Fournisseur</strong></td><td style="text-align:right;color:#166534;">${supplier?.name}</td></tr>
         <tr><td style="color:#166534;padding:3px 0;"><strong>Montant TTC</strong></td><td style="text-align:right;color:#166534;font-weight:700;">${Number(po.net_amount).toFixed(3)} TND</td></tr>
-        ${po.expected_delivery ? `<tr><td style="color:#166534;padding:3px 0;"><strong>Livraison prévue</strong></td><td style="text-align:right;color:#166534;">${new Date(po.expected_delivery).toLocaleDateString('fr-TN')}</td></tr>` : ''}
+        ${po.expected_delivery
+          ? `<tr><td style="color:#166534;padding:3px 0;"><strong>Livraison prévue</strong></td><td style="text-align:right;color:#166534;">${new Date(po.expected_delivery).toLocaleDateString('fr-TN')}</td></tr>`
+          : ''}
       </table>
     </div>
     <p style="font-size:13px;color:#6B7280;line-height:1.6;">
       Vous pouvez maintenant créer un bon de réception lorsque les marchandises arriveront.
     </p>
   </div>
-  <div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF;">Notification automatique BizManage</div>
+  <div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF;">
+    Notification automatique — ${businessName}
+  </div>
 </body>
 </html>`;
 
     try {
       await this.transporter.sendMail({
-        from:    `"BizManage Achats" <${this.from}>`,
-        to:      ownerEmail,
+        from:    `"${businessName}" <${this.from}>`,
+        to:      recipients,
         subject: `✓ BC ${po.po_number} confirmé par ${supplier?.name}`,
         html,
       });
-      this.logger.log(`Email confirmation BC ${po.po_number} envoyé à ${ownerEmail}`);
+      this.logger.log(`Email confirmation BC ${po.po_number} envoyé à : ${recipients}`);
     } catch (err: any) {
       this.logger.error(`Échec email confirmation BC : ${err.message}`);
     }
   }
 
+  // ─── Notification owner : BC refusé ──────────────────────────────────────
   async sendPORefusedToOwner(po: SupplierPO, reason: string): Promise<void> {
-    const business = await this.businessRepo.findOne({ where: { id: po.business_id } });
-    const ownerEmail = business?.email;
-    if (!ownerEmail) return;
+    const { recipients, businessName } = await this.resolveOwnerRecipients(po.business_id);
+
+    if (!recipients) {
+      this.logger.warn(`BC ${po.po_number} refusé — aucun email destinataire trouvé.`);
+      return;
+    }
 
     const supplier = po.supplier;
+
     const html = `
 <!DOCTYPE html>
 <html>
@@ -314,21 +366,23 @@ export class PurchaseMailService {
       </table>
     </div>
     <p style="font-size:13px;color:#6B7280;line-height:1.6;">
-      Le bon de commande est annulé. Vous pouvez en créer un nouveau ou contacter ${supplier?.name} pour négocier.
+      Le bon de commande est annulé. Vous pouvez en créer un nouveau ou contacter <strong>${supplier?.name}</strong> pour négocier.
     </p>
   </div>
-  <div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF;">Notification automatique BizManage</div>
+  <div style="padding:12px;text-align:center;font-size:11px;color:#9CA3AF;">
+    Notification automatique — ${businessName}
+  </div>
 </body>
 </html>`;
 
     try {
       await this.transporter.sendMail({
-        from:    `"BizManage Achats" <${this.from}>`,
-        to:      ownerEmail,
+        from:    `"${businessName}" <${this.from}>`,
+        to:      recipients,
         subject: `✗ BC ${po.po_number} refusé par ${supplier?.name}`,
         html,
       });
-      this.logger.log(`Email refus BC ${po.po_number} envoyé à ${ownerEmail}`);
+      this.logger.log(`Email refus BC ${po.po_number} envoyé à : ${recipients}`);
     } catch (err: any) {
       this.logger.error(`Échec email refus BC : ${err.message}`);
     }

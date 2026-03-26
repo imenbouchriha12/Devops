@@ -15,6 +15,9 @@ import { Supplier }        from '../entities/supplier.entity';
 import { InvoiceStatus }   from '../enum/invoice-status.enum';
 import { POStatus }        from '../enum/po-status.enum';
 import { SupplierPayment } from '../../payments/entities/supplier-payment.entity';
+import { User } from '../../users/entities/user.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { Business } from '../../businesses/entities/business.entity';
 
 // Seuils configurables
 const THRESHOLDS = {
@@ -48,7 +51,17 @@ export class PurchaseAlertsService {
     @InjectRepository(Supplier)
     private readonly supplierRepo: Repository<Supplier>,
 
-    private readonly config: ConfigService,
+      // ✅ NOUVEAUX REPOSITORIES
+  @InjectRepository(Business)
+  private readonly businessRepo: Repository<Business>,
+
+  @InjectRepository(Tenant)
+  private readonly tenantRepo: Repository<Tenant>,
+
+  @InjectRepository(User)
+  private readonly userRepo: Repository<User>,
+
+  private readonly config: ConfigService,
   ) {
     this.from = config.get<string>('GMAIL_USER', 'no-reply@platform.tn');
     this.transporter = nodemailer.createTransport({
@@ -358,9 +371,22 @@ export class PurchaseAlertsService {
     return this.alertRepo.save(alert);
   }
 
-  private async sendAlertEmail(alert: PurchaseAlert, businessId: string): Promise<void> {
-    const adminEmail = this.config.get<string>('ADMIN_NOTIFICATION_EMAIL');
-    if (!adminEmail) return;
+private async sendAlertEmail(alert: PurchaseAlert, businessId: string): Promise<void> {
+  // ← NOUVEAU : récupérer l'email du owner dynamiquement
+  const business = await this.businessRepo.findOne({ where: { id: businessId } });
+  const tenant = await this.tenantRepo.findOne({ where: { id: business?.tenant_id } });
+  const owner = await this.userRepo.findOne({ where: { id: tenant?.ownerId } });
+  
+  // Alertes critiques (DANGER) → business owner + business.email
+  // Alertes informatives → seulement si seuil DANGER
+  const isDanger = alert.severity === AlertSeverity.DANGER;
+  
+  const recipients = [
+    owner?.email,
+    isDanger ? business?.email : null,
+  ].filter(Boolean).join(',');
+  
+  if (!recipients) return;
 
     const severityColors: Record<AlertSeverity, string> = {
       [AlertSeverity.INFO]:    '#3B82F6',
@@ -373,7 +399,7 @@ export class PurchaseAlertsService {
     try {
       await this.transporter.sendMail({
         from:    `"Alertes Achats" <${this.from}>`,
-        to:      adminEmail,
+        to:      recipients,
         subject: `[${alert.severity}] ${alert.title}`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">

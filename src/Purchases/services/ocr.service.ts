@@ -12,6 +12,7 @@ import * as fs           from 'fs';
 import * as path         from 'path';
 import { execFile }      from 'child_process';
 import { promisify }     from 'util';
+import { OcrAiValidatorService } from './ocr-ai-validator.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -34,6 +35,14 @@ export interface OcrInvoiceResult {
   raw_text:                string;
   ocr_confidence:          number;
   processing_time_ms:      number;
+  // Validation IA
+  ai_validation?: {
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+    confidence: number;
+    hasCorrections: boolean;
+  };
 }
 
 @Injectable()
@@ -41,7 +50,10 @@ export class OcrService {
 
   private readonly logger = new Logger(OcrService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly aiValidator: OcrAiValidatorService,
+  ) {}
 
   async extractFromFile(filePath: string): Promise<OcrInvoiceResult> {
     const start = Date.now();
@@ -71,8 +83,26 @@ export class OcrService {
     const result        = this.parseInvoiceText(rawText);
     result.processing_time_ms = Date.now() - start;
 
+    // Validation IA
+    const validation = await this.aiValidator.validateAndCorrect(result);
+    
+    // Appliquer les corrections si disponibles
+    if (Object.keys(validation.correctedData).length > 0) {
+      Object.assign(result, validation.correctedData);
+    }
+
+    // Ajouter les infos de validation
+    result.ai_validation = {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      confidence: validation.confidence,
+      hasCorrections: Object.keys(validation.correctedData).length > 0,
+    };
+
     this.logger.log(
-      `Tesseract OCR terminé en ${result.processing_time_ms}ms — ${rawText.length} caractères extraits`,
+      `Tesseract OCR terminé en ${result.processing_time_ms}ms — ${rawText.length} caractères extraits — ` +
+      `Validation IA: ${validation.isValid ? 'OK' : 'ERREURS'} (${validation.confidence}%)`,
     );
 
     return result;

@@ -19,6 +19,7 @@ import { Supplier }            from './entities/supplier.entity';
 import { SupplierPortalToken } from './entities/supplier-portal-token.entity';
 import { PurchaseAlert }       from './entities/purchase-alert.entity';
 import { Business }            from '../businesses/entities/business.entity';
+// import { Product }             from '../products/entities/product.entity'; // Module pas encore implémenté
  
 // Controllers — SupplierPaymentsController RETIRÉ (dans PaymentsModule)
 import { PurchasesController }        from './purchases.controller';
@@ -44,17 +45,26 @@ import { PurchaseAlertsService }   from './services/purchase-alerts.service';
 import { ThreeWayMatchingService } from './services/three-way-matching.service';
 import { SupplierScoringService }  from './services/supplier-scoring.service';
 import { OcrService }              from './services/ocr.service';
+import { OcrAiValidatorService }   from './services/ocr-ai-validator.service';
+import { PoAiGeneratorService }    from './services/po-ai-generator.service';
+import { SupplierAiInsightsService } from './services/supplier-ai-insights.service';
  
 // FIX : import du module payments avec forwardRef des DEUX côtés
 import { PaymentsModule } from '../payments/payments.module';
 import { SupplierScoringController } from './services/supplier-scoring.controller';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { User } from '../users/entities/user.entity';
+import { SupplierOnboardingController } from './controllers/supplier-onboarding.controller';
+import { SupplierOnboardingService } from './services/supplier-onboarding.service';
+import { SupplierOnboardingPublicController } from './controllers/supplier-onboarding.controller';
  
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       GoodsReceipt, GoodsReceiptItem, PurchaseInvoice,
       SupplierPOItem, SupplierPO, Supplier,
-      SupplierPortalToken, PurchaseAlert, Business,
+      SupplierPortalToken, PurchaseAlert, Business, Tenant, User,
+      // Product, // Module pas encore implémenté
       // SupplierPayment retiré — dans PaymentsModule
     ]),
     forwardRef(() => PaymentsModule), // ← FIX : forwardRef des deux côtés
@@ -83,7 +93,8 @@ import { SupplierScoringController } from './services/supplier-scoring.controlle
     ThreeWayMatchingController,
     SupplierScoringController,
     OcrController,
-
+    SupplierOnboardingController,
+    SupplierOnboardingPublicController,
   ],
  
   providers: [
@@ -98,6 +109,10 @@ import { SupplierScoringController } from './services/supplier-scoring.controlle
     ThreeWayMatchingService,
     SupplierScoringService,
     OcrService,
+    OcrAiValidatorService,
+    PoAiGeneratorService,
+    SupplierAiInsightsService,
+    SupplierOnboardingService 
 
   ],
  

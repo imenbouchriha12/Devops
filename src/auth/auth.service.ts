@@ -122,6 +122,7 @@ async register(registerDto: RegisterDto, res: Response) {
       tax_id: registerDto.business.tax_id,
       currency: registerDto.business.currency || 'TND',
       address: registerDto.business.address,
+      email: registerDto.business.email || registerDto.email, // ← AJOUTER
     });
     await queryRunner.manager.save(business);
 
