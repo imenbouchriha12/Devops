@@ -3,7 +3,7 @@ FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
-# ✅ FIX: Install Python + build tools + canvas native dependencies
+# Install Python + build tools + canvas native dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
@@ -19,7 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies (including devDependencies for build)
+# ✅ FIX: Copy TypeScript + NestJS config files before install & build
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
+
+# Install ALL dependencies (devDependencies needed for nest build)
 RUN npm ci && npm cache clean --force
 
 # Copy source code
@@ -33,9 +37,18 @@ FROM node:18-bullseye-slim
 
 WORKDIR /app
 
-# ✅ FIX: Install dumb-init + canvas RUNTIME libraries
+# Install dumb-init + canvas runtime libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dumb-init \
+    python3 \
+    make \
+    g++ \
+    pkg-config \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
     libcairo2 \
     libpango-1.0-0 \
     libjpeg62-turbo \
@@ -46,10 +59,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs nestjs
 
-# Copy package files
+# Copy package files + config
 COPY package*.json ./
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
 
-# ✅ FIX: Install only production dependencies (with native build tools available)
+# Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application from builder
