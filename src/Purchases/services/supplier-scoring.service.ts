@@ -16,7 +16,7 @@ import { GoodsReceipt }       from '../entities/goods-receipt.entity';
 import { PurchaseInvoice }    from '../entities/purchase-invoice.entity';
 import { POStatus }           from '../enum/po-status.enum';
 import { InvoiceStatus }      from '../enum/invoice-status.enum';
-import { SupplierPayment } from 'src/payments/entities/supplier-payment.entity';
+import { SupplierPayment } from '../../payments/entities/supplier-payment.entity';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -259,11 +259,13 @@ export class SupplierScoringService {
     businessId: string, supplierId: string,
   ): Promise<[ScoreCriteria, Pick<SupplierScore['stats'], 'on_time_deliveries' | 'total_deliveries' | 'on_time_rate_pct'>]> {
 
-    const grs = await this.grRepo.find({
-      where:     { business_id: businessId },
-      relations: ['supplier_po'],
-    });
-
+      const grs = await this.grRepo.find({
+        where: {
+          business_id: businessId,
+          supplier_po: { supplier_id: supplierId },
+        },
+        relations: ['supplier_po'],
+      });
     const supplierGRs = grs.filter(gr => gr.supplier_po?.supplier_id === supplierId);
 
     const total_deliveries = supplierGRs.length;

@@ -30,9 +30,9 @@ export class SalesEmailAiService {
     } else {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Utiliser gemini-1.5-flash-002 (version stable)
-        this.model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-002' });
-        this.logger.log('Service email AI initialisé avec succès');
+        // Utiliser gemini-pro (version stable et largement disponible)
+        this.model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        this.logger.log('Service email AI initialisé avec succès (gemini-pro)');
       } catch (error: any) {
         this.logger.error(`Erreur initialisation Gemini: ${error.message}`);
         this.model = null;

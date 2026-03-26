@@ -8,8 +8,12 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Response,
+  Patch,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Response as ExpressResponse } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -21,7 +25,6 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { Patch } from '@nestjs/common';
 
 @Controller('auth')
 export class AuthController {
@@ -30,8 +33,8 @@ export class AuthController {
   // ─── POST /auth/register ─────────────────────────────────────────────────
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Response({ passthrough: true }) res: ExpressResponse) {
+    return this.authService.register(dto, res);
   }
 
   // ─── POST /auth/login ────────────────────────────────────────────────────
@@ -40,24 +43,50 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('local'))
-  async login(@Request() req) {
-    return this.authService.login(req.user);
+  async login(@Request() req, @Response({ passthrough: true }) res) {
+    return this.authService.login(req.user, res);
   }
 
   // ─── POST /auth/refresh ──────────────────────────────────────────────────
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshTokens(dto.refresh_token);
+  async refresh(@Request() req, @Response({ passthrough: true }) res: ExpressResponse) {
+    const refreshToken = req.cookies?.refresh_token;
+    
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not found');
+    }
+    
+    return this.authService.refreshTokens(refreshToken, res);
   }
 
   // ─── POST /auth/logout ───────────────────────────────────────────────────
-  // You must be logged in (have a valid access token) to logout.
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'))
-  async logout(@Body() dto: RefreshTokenDto) {
-    return this.authService.logout(dto.refresh_token);
+  async logout(@Request() req, @Response({ passthrough: true }) res: ExpressResponse) {
+    const refreshToken = req.cookies?.refresh_token;
+    
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+    
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // Clear both cookies
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+    });
+    
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/auth/refresh',
+    });
+    
+    return { message: 'Logged out successfully' };
   }
 
   // ─── GET /auth/me ────────────────────────────────────────────────────────

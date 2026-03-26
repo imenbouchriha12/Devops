@@ -1,20 +1,20 @@
-// src/Purchases/services/supplier-payments.service.ts
 import {
-  Injectable, NotFoundException, BadRequestException, Logger,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { PurchaseInvoice }    from '../../Purchases/entities/purchase-invoice.entity';
-import { InvoiceStatus }      from '../../Purchases/enum/invoice-status.enum';
-import { SuppliersService }   from '../../Purchases/services/suppliers.service';
-import { CreateSupplierPaymentDto, QuerySupplierPaymentsDto } from '../dto/supplier-payment.dto';
-import { SupplierPayment } from '../entities/supplier-payment.entity';
+import { SupplierPayment }  from '../entities/supplier-payment.entity';
+
+import { Account }          from '../../payments/entities/account.entity';
+import { Transaction }      from '../../payments/entities/transaction.entity';
+import { TransactionType }  from '../../payments/enums/transaction-type.enum';
+import { PurchaseInvoice } from 'src/Purchases/entities/purchase-invoice.entity';
+import { InvoiceStatus } from 'src/Purchases/enum/invoice-status.enum';
 
 @Injectable()
 export class SupplierPaymentsService {
-
-  private readonly logger = new Logger(SupplierPaymentsService.name);
-
   constructor(
     @InjectRepository(SupplierPayment)
     private readonly paymentRepo: Repository<SupplierPayment>,
@@ -22,69 +22,83 @@ export class SupplierPaymentsService {
     @InjectRepository(PurchaseInvoice)
     private readonly invoiceRepo: Repository<PurchaseInvoice>,
 
-    private readonly suppliersService: SuppliersService,
+    @InjectRepository(Account)
+    private readonly accountRepo: Repository<Account>,
+
+    @InjectRepository(Transaction)
+    private readonly transactionRepo: Repository<Transaction>,
+
     private readonly dataSource: DataSource,
   ) {}
 
-  // ─────────────────────────────────────────────────────────────────
-  // CREATE
-  // ─────────────────────────────────────────────────────────────────
-  async create(
-    businessId: string,
-    dto: CreateSupplierPaymentDto,
-    userId: string,
-  ): Promise<SupplierPayment> {
-
-    // Vérifier que le fournisseur existe
-    await this.suppliersService.findOneOrFail(businessId, dto.supplier_id);
-
-    // Si lié à une facture → vérifier cohérence
-    let invoice: PurchaseInvoice | null = null;
-    if (dto.purchase_invoice_id) {
-      invoice = await this.invoiceRepo.findOne({
-        where: { id: dto.purchase_invoice_id, business_id: businessId },
+  async create(businessId: string, userId: string, dto: any): Promise<SupplierPayment> {
+    return await this.dataSource.transaction(async (manager) => {
+      // 1. Vérifier le compte
+      const account = await manager.findOne(Account, {
+        where: { id: dto.account_id, business_id: businessId, is_active: true },
       });
-      if (!invoice) {
-        throw new NotFoundException(`Facture introuvable (id: ${dto.purchase_invoice_id})`);
-      }
-      if (invoice.supplier_id !== dto.supplier_id) {
-        throw new BadRequestException(
-          `La facture ${invoice.invoice_number_supplier} n'appartient pas au fournisseur sélectionné.`,
-        );
-      }
-      const payable = [
-        InvoiceStatus.APPROVED,
-        InvoiceStatus.PARTIALLY_PAID,
-        InvoiceStatus.OVERDUE,
-        InvoiceStatus.DISPUTED,
-      ];
-      if (!payable.includes(invoice.status)) {
-        throw new BadRequestException(
-          `Facture en statut "${invoice.status}" — non payable. ` +
-          `Requis : APPROVED, PARTIALLY_PAID, OVERDUE ou DISPUTED.`,
-        );
-      }
-      const remaining = this.round(Number(invoice.net_amount) - Number(invoice.paid_amount));
-      if (dto.amount > remaining + 0.005) {
-        throw new BadRequestException(
-          `Montant (${dto.amount}) supérieur au reste à payer (${remaining}).`,
-        );
-      }
-    }
+      if (!account) throw new NotFoundException('Account not found or inactive');
 
-    return this.dataSource.transaction(async (manager) => {
+      if (Number(account.current_balance) < dto.amount) {
+        throw new BadRequestException(
+          `Solde insuffisant. Disponible: ${account.current_balance}`,
+        );
+      }
+
+      // 2. Vérifier la facture fournisseur si fournie
+      let invoice: PurchaseInvoice | null = null;
+      if (dto.purchase_invoice_id) {
+        invoice = await manager.findOne(PurchaseInvoice, {
+          where: { id: dto.purchase_invoice_id, business_id: businessId },
+        });
+        if (!invoice) throw new NotFoundException('Purchase invoice not found');
+
+        if (invoice.supplier_id !== dto.supplier_id) {
+          throw new BadRequestException(
+            `La facture n'appartient pas au fournisseur sélectionné.`,
+          );
+        }
+
+        const payable = [
+          InvoiceStatus.APPROVED,
+          InvoiceStatus.PARTIALLY_PAID,
+          InvoiceStatus.OVERDUE,
+          InvoiceStatus.DISPUTED,
+        ];
+        if (!payable.includes(invoice.status)) {
+          throw new BadRequestException(
+            `Facture en statut "${invoice.status}" — non payable.`,
+          );
+        }
+
+        const remaining = this.round(Number(invoice.net_amount) - Number(invoice.paid_amount));
+        if (dto.amount > remaining + 0.005) {
+          throw new BadRequestException(
+            `Montant (${dto.amount}) supérieur au reste à payer (${remaining}).`,
+          );
+        }
+      }
+
+      // 3. Générer le numéro de paiement
       const payment_number = await this.generateNumber(businessId, manager);
 
+      // 4. Créer le paiement fournisseur
       const payment = manager.create(SupplierPayment, {
-        ...dto,
-        payment_number,
         business_id: businessId,
+        supplier_id: dto.supplier_id,
+        purchase_invoice_id: dto.purchase_invoice_id ?? null,
+        account_id: dto.account_id,
+        payment_number,
         payment_date: new Date(dto.payment_date),
-        created_by:  userId,
+        amount: dto.amount,
+        payment_method: dto.payment_method,
+        reference: dto.reference ?? null,
+        notes: dto.notes ?? null,
+        created_by: userId,
       });
       const saved = await manager.save(SupplierPayment, payment);
 
-      // Si lié à une facture → mettre à jour paid_amount + statut
+      // 5. Mettre à jour la facture fournisseur si fournie
       if (invoice) {
         const newPaid = this.round(Number(invoice.paid_amount) + dto.amount);
         invoice.paid_amount = newPaid;
@@ -97,48 +111,63 @@ export class SupplierPaymentsService {
         await manager.save(PurchaseInvoice, invoice);
       }
 
+      // 6. Débiter le compte
+      account.current_balance = Number(account.current_balance) - dto.amount;
+      await manager.save(Account, account);
+
+      // 7. Créer la transaction DECAISSEMENT
+      const description = invoice
+        ? `Paiement fournisseur facture ${invoice.invoice_number_supplier}`
+        : `Paiement fournisseur ${payment_number}`;
+
+      const transaction = manager.create(Transaction, {
+        business_id: businessId,
+        account_id: dto.account_id,
+        type: TransactionType.DECAISSEMENT,
+        amount: dto.amount,
+        transaction_date: dto.payment_date,
+        description,
+        reference: dto.reference ?? null,
+        notes: dto.notes ?? null,
+        related_entity_type: 'SupplierPayment',
+        related_entity_id: saved.id,
+        is_reconciled: false,
+        created_by: userId,
+      });
+      await manager.save(Transaction, transaction);
+
       return manager.findOne(SupplierPayment, {
-        where:     { id: saved.id },
+        where: { id: saved.id },
         relations: ['supplier', 'purchase_invoice'],
       }) as Promise<SupplierPayment>;
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // READ
-  // ─────────────────────────────────────────────────────────────────
-  async findAll(businessId: string, query: QuerySupplierPaymentsDto) {
-    const { supplier_id, purchase_invoice_id, payment_method, date_from, date_to, page = 1, limit = 20 } = query;
-
-    const qb = this.paymentRepo
-      .createQueryBuilder('p')
-      .leftJoinAndSelect('p.supplier', 'supplier')
-      .leftJoinAndSelect('p.purchase_invoice', 'invoice')
-      .where('p.business_id = :businessId', { businessId })
-      .orderBy('p.payment_date', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-
-    if (supplier_id)         qb.andWhere('p.supplier_id = :supplier_id', { supplier_id });
-    if (purchase_invoice_id) qb.andWhere('p.purchase_invoice_id = :purchase_invoice_id', { purchase_invoice_id });
-    if (payment_method)      qb.andWhere('p.payment_method = :payment_method', { payment_method });
-    if (date_from)           qb.andWhere('p.payment_date >= :date_from', { date_from });
-    if (date_to)             qb.andWhere('p.payment_date <= :date_to', { date_to });
-
-    const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit, total_pages: Math.ceil(total / limit) };
+  async findAll(businessId: string): Promise<SupplierPayment[]> {
+    return await this.paymentRepo.find({
+      where: { business_id: businessId },
+      relations: ['supplier', 'purchase_invoice', 'account'],
+      order: { created_at: 'DESC' },
+    });
   }
 
   async findOne(businessId: string, id: string): Promise<SupplierPayment> {
-    const p = await this.paymentRepo.findOne({
-      where:     { id, business_id: businessId },
-      relations: ['supplier', 'purchase_invoice'],
+    const payment = await this.paymentRepo.findOne({
+      where: { id, business_id: businessId },
+      relations: ['supplier', 'purchase_invoice', 'account'],
     });
-    if (!p) throw new NotFoundException(`Paiement introuvable (id: ${id})`);
-    return p;
+    if (!payment) throw new NotFoundException('Supplier payment not found');
+    return payment;
   }
 
-  // Statistiques : total payé à un fournisseur
+  async findBySupplier(businessId: string, supplierId: string): Promise<SupplierPayment[]> {
+    return await this.paymentRepo.find({
+      where: { business_id: businessId, supplier_id: supplierId },
+      relations: ['purchase_invoice', 'account'],
+      order: { created_at: 'DESC' },
+    });
+  }
+
   async getSupplierStats(businessId: string, supplierId: string) {
     const result = await this.paymentRepo
       .createQueryBuilder('p')
@@ -154,9 +183,6 @@ export class SupplierPaymentsService {
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // PRIVÉ
-  // ─────────────────────────────────────────────────────────────────
   private async generateNumber(businessId: string, manager: any): Promise<string> {
     const year   = new Date().getFullYear();
     const prefix = `PAY-${year}-`;

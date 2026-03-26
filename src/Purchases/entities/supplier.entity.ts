@@ -12,6 +12,7 @@ import {
 import { Business }       from '../../businesses/entities/business.entity';
 import { SupplierPO }     from './supplier-po.entity';
 import { PurchaseInvoice } from './purchase-invoice.entity';
+import { GoodsReceipt } from './goods-receipt.entity';
 
 @Entity('suppliers')
 @Index(['business_id', 'is_active'])
@@ -86,6 +87,6 @@ export class Supplier {
   @OneToMany(() => PurchaseInvoice, (inv) => inv.supplier)
   purchase_invoices: PurchaseInvoice[];
 
-  @OneToMany('GoodsReceipt', 'supplier')
-  goods_receipts: any[];
+@OneToMany(() => GoodsReceipt, (gr) => gr.supplier)
+goods_receipts: GoodsReceipt[];
 }

@@ -11,20 +11,21 @@ import {
 import { SupplierPO }       from './supplier-po.entity';
 import { Supplier }         from './supplier.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
-import { Business } from 'src/businesses/entities/business.entity';
-import { User } from 'src/users/entities/user.entity';
+import { Business } from '../../businesses/entities/business.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('goods_receipts')
 @Index(['business_id'])
 @Index(['supplier_po_id'])
 @Index(['supplier_id'])
+@Index(['business_id', 'gr_number'], { unique: true })
 export class GoodsReceipt {
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   // Numéro auto-généré : BR-2024-0001
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50,})
   gr_number: string;
 
   // ── Multitenant ───────────────────────────────────────────────

@@ -18,7 +18,7 @@ import { SupplierPO }          from './entities/supplier-po.entity';
 import { Supplier }            from './entities/supplier.entity';
 import { SupplierPortalToken } from './entities/supplier-portal-token.entity';
 import { PurchaseAlert }       from './entities/purchase-alert.entity';
-import { Business }            from 'src/businesses/entities/business.entity';
+import { Business }            from '../businesses/entities/business.entity';
  
 // Controllers — SupplierPaymentsController RETIRÉ (dans PaymentsModule)
 import { PurchasesController }        from './purchases.controller';
@@ -46,7 +46,7 @@ import { SupplierScoringService }  from './services/supplier-scoring.service';
 import { OcrService }              from './services/ocr.service';
  
 // FIX : import du module payments avec forwardRef des DEUX côtés
-import { PaymentsModule } from 'src/payments/payments.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { SupplierScoringController } from './services/supplier-scoring.controller';
  
 @Module({
@@ -77,7 +77,7 @@ import { SupplierScoringController } from './services/supplier-scoring.controlle
     SupplierPOsController,
     GoodsReceiptsController,
     PurchaseInvoicesController,
-    //UploadController,
+    UploadController,
     SupplierPortalController,
     PurchaseAlertsController,
     ThreeWayMatchingController,
