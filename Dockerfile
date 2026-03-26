@@ -19,9 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy package files
 COPY package*.json ./
 
-# ✅ FIX: Copy TypeScript + NestJS config files before install & build
+# Copy TypeScript config files before install & build
 COPY tsconfig*.json ./
-COPY nest-cli.json ./
 
 # Install ALL dependencies (devDependencies needed for nest build)
 RUN npm ci && npm cache clean --force
@@ -59,10 +58,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs nestjs
 
-# Copy package files + config
+# Copy package files + TS config
 COPY package*.json ./
 COPY tsconfig*.json ./
-COPY nest-cli.json ./
 
 # Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
