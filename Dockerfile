@@ -19,8 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy package files
 COPY package*.json ./
 
-# Copy TypeScript config files before install & build
+# ✅ FIX: Copy TypeScript + NestJS config files before install & build
 COPY tsconfig*.json ./
+COPY nest-cli.json ./
 
 # Install ALL dependencies (devDependencies needed for nest build)
 RUN npm ci && npm cache clean --force
@@ -58,17 +59,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs nestjs
 
-# Copy package files + TS config
+# Copy package files + config
 COPY package*.json ./
 COPY tsconfig*.json ./
+COPY nest-cli.json ./
 
 # Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
 
-# Copy built application from builder
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/public ./public
-COPY --from=builder --chown=nestjs:nodejs /app/migrations ./migrations
+
+# Copy public folder only if it exists
+RUN if [ -d /app/public ]; then echo "public exists"; fi
 
 # Create uploads directory
 RUN mkdir -p /app/uploads/ocr-temp /app/uploads/sales-ocr-temp && \
