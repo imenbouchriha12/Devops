@@ -1,12 +1,16 @@
 pipeline {
     agent any
-    
+
+    tools {
+        nodejs 'Node18'   // ✅ FIX: This was missing — caused exit code 127
+    }
+
     environment {
         // ✅ Docker Hub config
         DOCKER_REGISTRY = 'bardaoui'
         DOCKER_REGISTRY_URL = 'https://index.docker.io/v1/'
         IMAGE_NAME = 'backend'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        IMAGE_TAG = "${BUILD_NUMBER}"   // ✅ FIX: was env.BUILD_NUMBER
 
         // ✅ Credentials
         DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
@@ -16,13 +20,13 @@ pipeline {
         NAMESPACE = 'default'
         DEPLOYMENT_NAME = 'backend'
     }
-    
+
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
     }
-    
+
     stages {
 
         stage('🔍 Checkout') {
@@ -33,6 +37,7 @@ pipeline {
 
         stage('📥 Install Dependencies') {
             steps {
+                sh 'node -v && npm -v'   // ✅ FIX: verify node is available before running
                 sh 'npm ci'
             }
         }
