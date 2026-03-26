@@ -238,12 +238,19 @@ export class BusinessesController {
   // ─── Business Members Management ─────────────────────────────────────────
 
   // GET /businesses/:id/members
-  @Get(':id/members')
-  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
-  @OwnerAndAdmin()
-  async getMembers(@Param('id') businessId: string) {
-    return this.businessMembersService.getBusinessMembers(businessId);
-  }
+  //@Get(':id/members')
+ // @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
+ // @OwnerAndAdmin()
+ // async getMembers(@Param('id') businessId: string) {
+  //  return this.businessMembersService.getBusinessMembers(businessId);
+  //}
+  
+  // GET /businesses/:id/members
+@Get(':id/members')
+@AllBusinessMembers()   // ← tous les membres peuvent voir
+async getMembers(@Param('id') businessId: string) {
+  return this.businessMembersService.getBusinessMembers(businessId);
+}
 
   // POST /businesses/:id/members
   @Post(':id/members')
