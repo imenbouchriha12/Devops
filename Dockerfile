@@ -1,13 +1,26 @@
 # Stage 1: Build
-FROM node:18-alpine AS builder
+FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
+
+# ✅ FIX: Install Python + build tools + canvas native dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    pkg-config \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install ALL dependencies (including devDependencies for build)
+RUN npm ci && npm cache clean --force
 
 # Copy source code
 COPY . .
@@ -16,20 +29,27 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:18-alpine
+FROM node:18-bullseye-slim
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# ✅ FIX: Install dumb-init + canvas RUNTIME libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    dumb-init \
+    libcairo2 \
+    libpango-1.0-0 \
+    libjpeg62-turbo \
+    libgif7 \
+    librsvg2-2 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs nestjs
 
 # Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
+# ✅ FIX: Install only production dependencies (with native build tools available)
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application from builder
