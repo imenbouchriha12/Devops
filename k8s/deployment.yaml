@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: your-registry.com/saas-backend:latest
+        image: bardaoui/backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3001
