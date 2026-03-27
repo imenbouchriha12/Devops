@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         // ✅ Docker Hub config
-        DOCKER_REGISTRY = 'bardaoui'
+        DOCKER_REGISTRY = 'imen077'
         DOCKER_REGISTRY_URL = 'https://index.docker.io/v1/'
         IMAGE_NAME = 'backend'
         IMAGE_TAG = "${BUILD_NUMBER}"   // ✅ FIX: was env.BUILD_NUMBER
