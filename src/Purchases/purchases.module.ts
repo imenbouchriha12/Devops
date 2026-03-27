@@ -51,7 +51,7 @@ import { SupplierAiInsightsService } from './services/supplier-ai-insights.servi
  
 // FIX : import du module payments avec forwardRef des DEUX côtés
 import { PaymentsModule } from '../payments/payments.module';
-import { SupplierScoringController } from './services/supplier-scoring.controller';
+import { SupplierScoringController } from './controllers/supplier-scoring.controller';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
 import { SupplierOnboardingController } from './controllers/supplier-onboarding.controller';
