@@ -165,7 +165,9 @@ import { AlertSeverity } from '../enum/alertSeverity';
             status:    In([AlertStatus.UNREAD, AlertStatus.READ]),
           },
         });
-        if (existing) continue;
+
+        const existingIds = new Set(existingAlerts.map(a => a.entity_id));
+      if (existingIds.has(inv.id)) continue;
 
         const daysSince = Math.floor(
           (Date.now() - new Date(po.updated_at).getTime()) / (1000 * 60 * 60 * 24),

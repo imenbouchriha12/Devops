@@ -32,38 +32,38 @@
       private readonly stockMovementsService: StockMovementsService,
     ) {}
 
-  async create(
-    businessId: string,
-    poId: string,
-    dto: CreateGoodsReceiptDto,
-    userId: string,
-  ): Promise<GoodsReceipt> {
+async create(
+  businessId: string,
+  poId: string,
+  dto: CreateGoodsReceiptDto,
+  userId: string,
+): Promise<GoodsReceipt> {
 
-    const po = await this.supplierPOsService.findOne(businessId, poId);
+  const po = await this.supplierPOsService.findOne(businessId, poId);
 
-    if (![POStatus.CONFIRMED, POStatus.PARTIALLY_RECEIVED].includes(po.status)) {
-      throw new BadRequestException(
-        `BC en statut "${po.status}" non réceptionnable. ` +
-        `Requis : CONFIRMED ou PARTIALLY_RECEIVED.`,
-      );
-    }
+  if (![POStatus.CONFIRMED, POStatus.PARTIALLY_RECEIVED].includes(po.status)) {
+    throw new BadRequestException(
+      `BC en statut "${po.status}" non réceptionnable. ` +
+      `Requis : CONFIRMED ou PARTIALLY_RECEIVED.`,
+    );
+  }
 
     const supplierId = po.supplier_id;
     if (!supplierId) {
       throw new BadRequestException('BC sans fournisseur associé.');
     }
 
-    const poItems = await this.dataSource
-      .getRepository(SupplierPOItem)
-      .find({ where: { supplier_po_id: poId } });
+  const poItems = await this.dataSource
+    .getRepository(SupplierPOItem)
+    .find({ where: { supplier_po_id: poId } });
 
-    const poItemsMap = new Map(poItems.map(i => [i.id, i]));
+  const poItemsMap = new Map(poItems.map(i => [i.id, i]));
 
-    this.validateLines(dto.items, poItemsMap);
+  this.validateLines(dto.items, poItemsMap);
 
-    const qr = this.dataSource.createQueryRunner();
-    await qr.connect();
-    await qr.startTransaction();
+  const qr = this.dataSource.createQueryRunner();
+  await qr.connect();
+  await qr.startTransaction();
 
     try {
 
@@ -112,7 +112,7 @@
 
       await this.updateStock(businessId, grItems, userId);
 
-      return this.findOne(businessId, savedGR.id);
+    const grItems: GoodsReceiptItem[] = [];
 
     } catch (err: unknown) {
 
@@ -123,7 +123,26 @@
     } finally {
       await qr.release();
     }
+
+    await this.supplierPOsService.updateStatusAfterReceipt(businessId, poId, qr.manager);
+
+    await qr.commitTransaction();
+
+    await this.updateStock(businessId, grItems, userId);
+
+    return this.findOne(businessId, savedGR.id);
+
+  } catch (err: unknown) {
+
+    await qr.rollbackTransaction();
+    this.logger.error('Erreur création BR', err instanceof Error ? err.stack : String(err));
+    throw err;
+
+  } finally {
+    await qr.release();
   }
+}
+
 
 
     async findAllByPO(businessId: string, poId: string): Promise<GoodsReceipt[]> {
