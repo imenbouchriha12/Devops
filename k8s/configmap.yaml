@@ -6,6 +6,6 @@ metadata:
 data:
   DATABASE_HOST: "postgres-service"
   DATABASE_PORT: "5432"
-  DATABASE_NAME: "saas_db"
+  DATABASE_NAME: "sass_platform1"
   FRONTEND_URL: "https://your-domain.com"
   NODE_ENV: "production"
