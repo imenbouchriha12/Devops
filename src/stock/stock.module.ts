@@ -8,11 +8,15 @@ import { Business } from '../businesses/entities/business.entity';
 // Controllers
 import { CategoriesController } from './controllers/categories.controller';
 import { ProductsController } from './controllers/products.controller';
+import {
+  StockMovementsController,
+  InternalStockMovementsController,
+} from './controllers/stock-movements.controller';
 
 // Services
 import { CategoriesService } from './services/categories.service';
 import { ProductsService } from './services/products.service';
-import { StockMovementsService } from './services/stock-movements/stock-movements.service';
+import { StockMovementsService } from './services/stock-movements.service';
 
 // Import BusinessesModule for BusinessAccessGuard dependencies
 import { BusinessesModule } from '../businesses/businesses.module';
@@ -25,6 +29,8 @@ import { BusinessesModule } from '../businesses/businesses.module';
   controllers: [
     CategoriesController,
     ProductsController,
+    StockMovementsController,
+    InternalStockMovementsController,
   ],
   providers: [
     CategoriesService,
