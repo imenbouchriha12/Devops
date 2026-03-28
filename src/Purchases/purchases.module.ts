@@ -48,6 +48,8 @@ import { OcrService }              from './services/ocr.service';
 // FIX : import du module payments avec forwardRef des DEUX côtés
 import { PaymentsModule } from '../payments/payments.module';
 import { SupplierScoringController } from './services/supplier-scoring.controller';
+// Added by Alaa for stock module
+import { StockModule } from '../stock/stock.module';
  
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { SupplierScoringController } from './services/supplier-scoring.controlle
       // SupplierPayment retiré — dans PaymentsModule
     ]),
     forwardRef(() => PaymentsModule), // ← FIX : forwardRef des deux côtés
+    // Added by Alaa for stock module
+    StockModule,
     HttpModule,
     ScheduleModule.forRoot(),
     MulterModule.register({ dest: './uploads' }),

@@ -38,11 +38,15 @@ import { ClientPortalController } from './controllers/client-portal.controller';
 import { SalesDashboardController } from './controllers/sales-dashboard.controller';
 import { Client } from '../clients/entities/client.entity';
 import { Business } from '../businesses/entities/business.entity';
+// Added by Alaa for stock module
+import { StockModule } from '../stock/stock.module';
 
 @Module({
   imports: [
     ConfigModule,
     ScheduleModule.forRoot(),
+    // Added by Alaa for stock module
+    StockModule,
     TypeOrmModule.forFeature([
       Quote,
       QuoteItem,

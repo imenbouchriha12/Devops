@@ -1,7 +1,6 @@
 export enum StockMovementType {
   ENTREE_ACHAT = 'ENTREE_ACHAT',
   SORTIE_VENTE = 'SORTIE_VENTE',
-  ENTREE_RETOUR_CLIENT = 'ENTREE_RETOUR_CLIENT',
   AJUSTEMENT_POSITIF = 'AJUSTEMENT_POSITIF',
   AJUSTEMENT_NEGATIF = 'AJUSTEMENT_NEGATIF',
 }
@@ -9,7 +8,6 @@ export enum StockMovementType {
 export function isIncrementType(type: StockMovementType): boolean {
   return [
     StockMovementType.ENTREE_ACHAT,
-    StockMovementType.ENTREE_RETOUR_CLIENT,
     StockMovementType.AJUSTEMENT_POSITIF,
   ].includes(type);
 }
