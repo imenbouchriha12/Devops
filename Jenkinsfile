@@ -2,17 +2,14 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_REGISTRY     = 'docker.io'
-        DOCKER_REGISTRY_URL = 'https://index.docker.io/v1/'
-        IMAGE_NAME          = 'imen077/backend'
-        IMAGE_TAG           = "${env.BUILD_NUMBER}"
-
-        DOCKER_CREDENTIALS_ID    = 'docker-credentials'
+        DOCKER_REGISTRY_URL       = 'https://index.docker.io/v1/'
+        IMAGE_NAME                = 'imen077/backend'
+        IMAGE_TAG                 = "${env.BUILD_NUMBER}"
+        DOCKER_CREDENTIALS_ID     = 'docker-credentials'
         KUBECONFIG_CREDENTIALS_ID = 'kubeconfig-file'
-        SONAR_PROJECT_KEY        = 'backend'
-
-        NAMESPACE       = 'production'
-        DEPLOYMENT_NAME = 'backend'
+        SONAR_PROJECT_KEY         = 'backend'
+        NAMESPACE                 = 'production'
+        DEPLOYMENT_NAME           = 'backend'
     }
 
     options {
@@ -51,14 +48,23 @@ pipeline {
             steps {
                 script {
                     echo '🔬 Running SonarQube analysis...'
-                    withSonarQubeEnv('SonarQube') {
-                        sh """
-                            npx sonar-scanner \
-                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                              -Dsonar.sources=src \
-                              -Dsonar.host.url=http://192.168.33.10:9000 \
-                              -Dsonar.login=\${SONAR_AUTH_TOKEN}
-                        """
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        withSonarQubeEnv('SonarQube') {
+                            sh """
+                                # Installer sonar-scanner si absent
+                                if ! command -v sonar-scanner &> /dev/null; then
+                                    echo "📦 Installing sonar-scanner..."
+                                    npm install -g sonar-scanner --silent
+                                fi
+
+                                sonar-scanner \
+                                  -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                  -Dsonar.sources=src \
+                                  -Dsonar.host.url=http://192.168.33.10:9000 \
+                                  -Dsonar.login=${SONAR_TOKEN} \
+                                  -Dsonar.exclusions=node_modules/**,dist/**,**/*.spec.ts
+                            """
+                        }
                     }
                 }
             }
@@ -89,7 +95,7 @@ pipeline {
                     echo "🐳 Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
                     dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
                     sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
-                    echo "✅ Docker image built successfully!"
+                    echo '✅ Docker image built successfully!'
                 }
             }
         }
@@ -115,8 +121,6 @@ pipeline {
             steps {
                 script {
                     echo '🚀 Deploying to Kubernetes...'
-                    // KUBECONFIG_FILE évite le conflit avec la variable système KUBECONFIG
-                    // Les guillemets doubles autour de "$KUBECONFIG_FILE" gèrent les espaces dans le chemin
                     withCredentials([file(credentialsId: KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG_FILE')]) {
                         dir('k8s') {
                             sh '''
