@@ -21,7 +21,7 @@ export class InvoiceItem {
   @JoinColumn({ name: 'invoice_id' })
   invoice: Invoice;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 3 })
@@ -40,13 +40,13 @@ export class InvoiceItem {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   tax_rate_value: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 3 })
+  @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
   line_total_ht: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 3 })
+  @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
   line_tax: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 3 })
+  @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
   line_total_ttc: number;
 
   @Column({ type: 'int', default: 0 })
