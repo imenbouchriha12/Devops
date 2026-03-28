@@ -23,4 +23,11 @@ export class CreateMessageDto {
 
   @IsOptional()
   fileSize?: number;
+
+  @IsOptional()
+  mentions?: string[] | string; // Can be array or JSON string from FormData
+
+  @IsString()
+  @IsOptional()
+  messageColor?: string; // User's chosen color
 }

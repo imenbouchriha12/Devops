@@ -24,8 +24,29 @@ export class MessagesService {
     // Verify task exists and user has access
     await this.tasksService.findOne(createMessageDto.taskId, userId);
 
+    // Ensure mentions is always an array (not a string)
+    let mentions: string[] | undefined = undefined;
+    if (createMessageDto.mentions) {
+      if (typeof createMessageDto.mentions === 'string') {
+        try {
+          mentions = JSON.parse(createMessageDto.mentions);
+        } catch (e) {
+          mentions = undefined;
+        }
+      } else {
+        mentions = createMessageDto.mentions;
+      }
+    }
+
     const message = this.messageRepository.create({
-      ...createMessageDto,
+      taskId: createMessageDto.taskId,
+      content: createMessageDto.content,
+      fileUrl: createMessageDto.fileUrl,
+      fileName: createMessageDto.fileName,
+      fileType: createMessageDto.fileType,
+      fileSize: createMessageDto.fileSize,
+      mentions: mentions,
+      messageColor: createMessageDto.messageColor,
       senderId: userId,
     });
 

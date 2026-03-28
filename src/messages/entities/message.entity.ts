@@ -43,6 +43,12 @@ export class Message {
   @Column({ type: 'bigint', nullable: true })
   fileSize: number;
 
+  @Column('simple-array', { nullable: true })
+  mentions: string[]; // Array of user IDs mentioned in the message
+
+  @Column({ nullable: true, default: '#4F46E5' })
+  messageColor: string; // User's chosen message color
+
   @CreateDateColumn()
   createdAt: Date;
 }
