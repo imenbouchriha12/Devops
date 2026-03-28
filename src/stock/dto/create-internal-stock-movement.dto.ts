@@ -1,7 +1,14 @@
 import { IsEnum, IsUUID, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { StockMovementType } from '../enums/stock-movement-type.enum';
 
-export class CreateStockMovementDto {
+/**
+ * DTO for internal stock movements (called by other modules)
+ * Does not require authentication from frontend
+ */
+export class CreateInternalStockMovementDto {
+  @IsUUID()
+  business_id: string;
+
   @IsUUID()
   product_id: string;
 
@@ -23,4 +30,8 @@ export class CreateStockMovementDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsUUID()
+  created_by?: string;
 }

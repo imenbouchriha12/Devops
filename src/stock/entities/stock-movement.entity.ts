@@ -1,77 +1,94 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, ManyToOne, JoinColumn, Index,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
+import { Product } from './product.entity';
+import { Business } from '../../businesses/entities/business.entity';
 import { StockMovementType } from '../enums/stock-movement-type.enum';
-import { Product }   from './product.entity';
-import { Business }  from 'src/businesses/entities/business.entity';
- 
+
 @Entity('stock_movements')
-// FIX : snake_case dans les index
-@Index(['product_id', 'created_at'])
-@Index(['business_id', 'type'])
-@Index(['reference_type', 'reference_id'])
+@Index(['business_id', 'product_id'])
+@Index(['business_id', 'created_at'])
+@Index(['source_type', 'source_id'])
 export class StockMovement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
- 
-  @Column({ type: 'uuid' })
-  @Index()
-  business_id: string;
- 
-  // FIX : relation FK vers Business
-  @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
-  @JoinColumn({ name: 'business_id' })
-  business: Business;
- 
-  // FIX : snake_case + syntaxe complète
+
   @Column({ type: 'uuid' })
   @Index()
   product_id: string;
- 
-  @Column({ type: 'enum', enum: StockMovementType })
-  type: StockMovementType;
- 
-  @Column({ type: 'decimal', precision: 15, scale: 3 })
-  quantity: number;
- 
-  @Column({ type: 'decimal', precision: 15, scale: 3, default: 0 })
-  quantity_before: number;
- 
-  @Column({ type: 'decimal', precision: 15, scale: 3, default: 0 })
-  quantity_after: number;
- 
-  @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
-  unit_cost: number | null;
- 
-  @Column({ type: 'decimal', precision: 15, scale: 3, nullable: true })
-  total_value: number | null;
- 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  reference_type: string | null;
- 
-  @Column({ type: 'uuid', nullable: true })
-  reference_id: string | null;
- 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  reference: string | null;
- 
-  @Column({ type: 'uuid', nullable: true })
-  created_by: string | null;
- 
-  @Column({ type: 'text', nullable: true })
-  note: string | null;
- 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  location: string | null;
- 
-  // FIX : snake_case
-  @CreateDateColumn({ type: 'timestamptz' })
-  created_at: Date;
- 
+
   @ManyToOne(() => Product, (product) => product.stock_movements, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  @Column({ type: 'uuid' })
+  @Index()
+  business_id: string;
+
+  @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
+
+  @Column({
+    type: 'enum',
+    enum: StockMovementType,
+  })
+  type: StockMovementType;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 3,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  quantity: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 3,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  stock_before: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 3,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  stock_after: number;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  source_type: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  source_id: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  note: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  created_by: string | null;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  created_at: Date;
 }

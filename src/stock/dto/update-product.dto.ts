@@ -3,7 +3,7 @@ import {
   IsNumber,
   IsOptional,
   IsBoolean,
-  IsInt,
+  IsUUID,
   Min,
 } from 'class-validator';
 
@@ -14,33 +14,53 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
-  sku?: string;
+  reference?: string;
 
   @IsOptional()
   @IsString()
   description?: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  price?: number;
+  @IsUUID()
+  category_id?: string;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  cost?: number;
+  sale_price_ht?: number;
 
   @IsOptional()
-  @IsInt()
+  @IsNumber()
   @Min(0)
-  quantity?: number;
+  purchase_price_ht?: number;
 
   @IsOptional()
-  @IsInt()
+  @IsUUID()
+  tax_rate_id?: string;
+
+  @IsOptional()
+  @IsNumber()
   @Min(0)
-  minQuantity?: number;
+  current_stock?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  min_stock_threshold?: number;
 
   @IsOptional()
   @IsBoolean()
-  isActive?: boolean;
+  is_stockable?: boolean;
+
+  @IsOptional()
+  @IsString()
+  barcode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
 }

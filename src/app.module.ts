@@ -48,7 +48,7 @@ import { Payment } from './payments/entities/payment.entity';
 
 // Stock Entities
 import { Product } from './stock/entities/product.entity';
-import { ProductCategory } from './stock/entities/product-category.entity';
+import { Category } from './stock/entities/product-category.entity';
 import { StockMovement } from './stock/entities/stock-movement.entity';
 
 // Tasks Entities
@@ -124,7 +124,7 @@ import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.
 
           // Stock
           Product,
-          ProductCategory,
+          Category,
           StockMovement,
 
           // Tasks

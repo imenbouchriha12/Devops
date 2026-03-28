@@ -20,6 +20,10 @@ import { SalesMailService } from './sales-mail.service';
 import { ClientPortalService } from './client-portal.service';
 import { CreateSalesOrderDto } from '../dto/create-sales-order.dto';
 import { UpdateSalesOrderDto } from '../dto/update-sales-order.dto';
+// Added by Alaa for stock module
+import { StockMovementsService } from '../../stock/services/stock-movements.service';
+import { StockMovementType } from '../../stock/enums/stock-movement-type.enum';
+import { Product } from '../../stock/entities/product.entity';
 
 const TRANSITIONS: Record<SalesOrderStatus, SalesOrderStatus[]> = {
   [SalesOrderStatus.CONFIRMED]: [SalesOrderStatus.IN_PROGRESS, SalesOrderStatus.CANCELLED],
@@ -57,6 +61,10 @@ export class SalesOrdersService {
     private readonly portalService: ClientPortalService,
 
     private readonly dataSource: DataSource,
+    // Added by Alaa for stock module
+    @InjectRepository(Product)
+    private readonly productRepo: Repository<Product>,
+    private readonly stockMovementsService: StockMovementsService,
   ) {}
 
   async create(businessId: string, dto: CreateSalesOrderDto): Promise<SalesOrder> {
@@ -87,6 +95,9 @@ export class SalesOrdersService {
         }),
       );
       await manager.save(SalesOrderItem, lines);
+
+      // Added by Alaa for stock module - Create stock movements when sales order is CONFIRMED
+      await this.createStockMovementsForSalesOrder(businessId, saved.id, lines);
 
       return manager.findOne(SalesOrder, {
         where: { id: saved.id },
@@ -730,5 +741,49 @@ export class SalesOrdersService {
       subject: `🧾 Commande ${order.orderNumber} — Confirmation requise`,
       html,
     });
+  }
+
+  // Added by Alaa for stock module
+  private async createStockMovementsForSalesOrder(
+    businessId: string,
+    salesOrderId: string,
+    items: SalesOrderItem[],
+  ): Promise<void> {
+    const order = await this.orderRepo.findOne({
+      where: { id: salesOrderId, businessId },
+      relations: ['items'],
+    });
+
+    if (!order || order.status !== SalesOrderStatus.CONFIRMED) return;
+
+    // Create stock movements for each item with a stock_product_id
+    for (const item of order.items) {
+      if (item.stock_product_id) {
+        // Verify the product exists and is stockable
+        const product = await this.productRepo.findOne({
+          where: {
+            id: item.stock_product_id,
+            business_id: businessId,
+          },
+        });
+
+        if (product && product.is_stockable) {
+          try {
+            await this.stockMovementsService.createInternal({
+              business_id: businessId,
+              product_id: product.id,
+              type: StockMovementType.SORTIE_VENTE,
+              quantity: Number(item.quantity),
+              source_type: 'SALES_ORDER',
+              source_id: salesOrderId,
+              note: `Vente commande ${order.orderNumber}`,
+            });
+          } catch (error) {
+            console.error(`Failed to create stock movement for product ${product.id}:`, (error as Error).message);
+            // Continue with other items even if one fails
+          }
+        }
+      }
+    }
   }
 }

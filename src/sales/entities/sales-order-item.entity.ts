@@ -16,6 +16,16 @@ export class SalesOrderItem {
   @JoinColumn({ name: 'productId' })
   product: Product;
 
+  // ═══════════════════════════════════════════════════════════════
+  // Added by Alaa for stock module - New product relation
+  @ManyToOne(() => Product, { nullable: true })
+  @JoinColumn({ name: 'stock_product_id' })
+  stock_product: Product | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  stock_product_id: string | null;
+  // ═══════════════════════════════════════════════════════════════
+
   @Column({ nullable: true })
   productId: string;
 
