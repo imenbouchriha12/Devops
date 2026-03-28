@@ -8,10 +8,6 @@ import {
 } from 'typeorm';
 import { Invoice } from './invoice.entity';
 import { TaxRate } from '../../businesses/entities/tax-rate.entity';
-// ═══════════════════════════════════════════════════════════════
-// Added by Alaa for stock module
-import { Product } from '../../stock/entities/product.entity';
-// ═══════════════════════════════════════════════════════════════
 
 @Entity('invoice_items')
 export class InvoiceItem {
@@ -27,16 +23,6 @@ export class InvoiceItem {
 
   @Column({ type: 'text' })
   description: string;
-
-  // ═══════════════════════════════════════════════════════════════
-  // Added by Alaa for stock module
-  @Column({ type: 'uuid', nullable: true })
-  product_id: string | null;
-
-  @ManyToOne(() => Product, { nullable: true })
-  @JoinColumn({ name: 'product_id' })
-  product: Product | null;
-  // ═══════════════════════════════════════════════════════════════
 
   @Column({ type: 'decimal', precision: 10, scale: 3 })
   quantity: number;

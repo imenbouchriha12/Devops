@@ -5,10 +5,6 @@ export class CreateDeliveryNoteItemDto {
   @IsUUID('4', { message: 'Produit invalide' })
   productId?: string;
 
-  @IsOptional()
-  @IsUUID('4', { message: 'Ligne de commande invalide' })
-  salesOrderItemId?: string;
-
   @IsNotEmpty({ message: 'La description est obligatoire' })
   @IsString()
   description: string;

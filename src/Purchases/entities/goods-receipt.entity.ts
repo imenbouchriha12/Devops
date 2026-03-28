@@ -46,17 +46,20 @@
       @Column({ type: 'date' })
       receipt_date: Date;
 
-  // ── Utilisateur qui a validé la réception ─────────────────────
-  // Lien vers User (même module Auth) — eager:false pour performance
-  @Column({ type: 'uuid' })
-  received_by: string;
+      @Column({ type: 'text', nullable: true })
+      notes: string | null;
 
-  @ManyToOne(() => User, { eager: false, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'received_by' })
-  receiver: User;
+      // ── Utilisateur qui a validé la réception ─────────────────────
+      // Lien vers User (même module Auth) — eager:false pour performance
+      @Column({ type: 'uuid' })
+      received_by: string;
 
-  @CreateDateColumn({ type: 'timestamptz' })
-  created_at: Date;
+      @ManyToOne(() => User, { eager: false, onDelete: 'RESTRICT' })
+      @JoinColumn({ name: 'received_by' })
+      receiver: User;
+
+      @CreateDateColumn({ type: 'timestamptz' })
+      created_at: Date;
 
       // ── Relations ────────────────────────────────────────────────
       // eager:true = le BC et son fournisseur chargés automatiquement

@@ -90,13 +90,4 @@ export class DeliveryNotesController {
   ) {
     return this.service.delete(businessId, id);
   }
-
-  @Post(':id/clean-duplicates')
-  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN)
-  cleanDuplicates(
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.service.cleanDuplicates(businessId, id);
-  }
 }
