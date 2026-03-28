@@ -16,6 +16,9 @@ import { SuppliersService }    from '../services/suppliers.service';
 import { PurchaseMailService } from '../services/purchase-mail.service';
 import { CreateSupplierPODto } from '../dto/create-supplier-po.dto';
 import { UpdateSupplierPODto } from '../dto/update-supplier-po.dto';
+// Added by Alaa for stock module
+import { StockMovementsService } from '../../stock/services/stock-movements.service';
+import { StockMovementType } from '../../stock/enums/stock-movement-type.enum';
 
 const TRANSITIONS: Record<POStatus, POStatus[]> = {
   [POStatus.DRAFT]:              [POStatus.SENT, POStatus.CANCELLED],
@@ -40,6 +43,8 @@ export class SupplierPOsService {
     private readonly suppliersService: SuppliersService,
     private readonly dataSource: DataSource,
     private readonly purchaseMailService: PurchaseMailService,
+    // Added by Alaa for stock module
+    private readonly stockMovementsService: StockMovementsService,
   ) {}
 
   async create(businessId: string, dto: CreateSupplierPODto): Promise<SupplierPO> {
@@ -225,10 +230,54 @@ async send(businessId: string, id: string) {
       (item: SupplierPOItem) => Number(item.quantity_received) > 0,
     );
 
+    const previousStatus = po.status;
+
     if (allReceived)      po.status = POStatus.FULLY_RECEIVED;
     else if (anyReceived) po.status = POStatus.PARTIALLY_RECEIVED;
 
     await manager.save(SupplierPO, po);
+
+    // Added by Alaa for stock module - Create stock movements when status changes to PARTIALLY_RECEIVED or FULLY_RECEIVED
+    if (
+      (po.status === POStatus.PARTIALLY_RECEIVED || po.status === POStatus.FULLY_RECEIVED) &&
+      previousStatus !== po.status
+    ) {
+      await this.createStockMovementsForPO(businessId, poId, manager);
+    }
+  }
+
+  // Added by Alaa for stock module
+  private async createStockMovementsForPO(
+    businessId: string,
+    poId: string,
+    manager: any,
+  ): Promise<void> {
+    const po = await manager.findOne(SupplierPO, {
+      where: { id: poId, business_id: businessId },
+      relations: ['items'],
+    });
+
+    if (!po) return;
+
+    // Create stock movements for each item that has been received
+    for (const item of po.items) {
+      if (item.product_id && Number(item.quantity_received) > 0) {
+        try {
+          await this.stockMovementsService.createInternal({
+            business_id: businessId,
+            product_id: item.product_id,
+            type: StockMovementType.ENTREE_ACHAT,
+            quantity: Number(item.quantity_received),
+            source_type: 'SUPPLIER_PO',
+            source_id: poId,
+            note: `Réception bon de commande ${po.po_number}`,
+          });
+        } catch (error) {
+          console.error(`Failed to create stock movement for product ${item.product_id}:`, (error as Error).message);
+          // Continue with other items even if one fails
+        }
+      }
+    }
   }
 
   private async transition(

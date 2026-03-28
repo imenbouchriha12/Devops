@@ -50,6 +50,7 @@ import { SupplierAiInsightsService } from './services/supplier-ai-insights.servi
  
 // FIX : import du module payments avec forwardRef des DEUX côtés
 import { PaymentsModule } from '../payments/payments.module';
+import { StockModule } from '../stock/stock.module';
 import { SupplierScoringController } from './controllers/supplier-scoring.controller';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
@@ -69,6 +70,7 @@ import { OcrService } from './services/ocr.service';
       // SupplierPayment retiré — dans PaymentsModule
     ]),
     forwardRef(() => PaymentsModule), // ← FIX : forwardRef des deux côtés
+    StockModule, // ← Import StockModule pour StockMovementsService
     HttpModule,
     ScheduleModule.forRoot(),
     MulterModule.register({ dest: './uploads' }),
