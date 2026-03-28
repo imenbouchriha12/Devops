@@ -47,6 +47,22 @@ export class PurchaseInvoicesController {
     return this.service.findAll(businessId, query);
   }
 
+
+  ////////treasury////////
+ // GET /businesses/:businessId/purchase-invoices/approved-partial
+@Get('approved-partial')
+@Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT, Role.TEAM_MEMBER)
+async findApprovedOrPartial(
+  @Param('businessId', ParseUUIDPipe) businessId: string,
+  @Query() query: any,
+) {
+  return this.service.findApprovedOrPartial(businessId, query);
+}
+  ////////treasury////////
+
+
+
+
   // GET /businesses/:businessId/purchase-invoices/:id
   @Get(':id')
   @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT, Role.TEAM_MEMBER)
@@ -110,4 +126,9 @@ export class PurchaseInvoicesController {
   ) {
     return this.service.updatePayment(businessId, id, dto);
   }
+
+
+
+
+
 }
