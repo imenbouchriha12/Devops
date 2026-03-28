@@ -58,13 +58,6 @@
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
-      @ManyToOne(() => User, { eager: false, onDelete: 'RESTRICT' })
-      @JoinColumn({ name: 'received_by' })
-      receiver: User;
-
-      @CreateDateColumn({ type: 'timestamptz' })
-      created_at: Date;
-
       // ── Relations ────────────────────────────────────────────────
       // eager:true = le BC et son fournisseur chargés automatiquement
       @ManyToOne(() => SupplierPO, (po) => po.goods_receipts, { eager: true })

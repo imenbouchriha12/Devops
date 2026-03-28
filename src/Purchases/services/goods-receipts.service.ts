@@ -11,7 +11,7 @@
   import { SupplierPOsService } from './supplier-pos.service';
   import { POStatus }           from '../enum/po-status.enum';
   import { CreateGoodsReceiptDto } from '../dto/create-goods-receipt.dto';
-  import { StockMovementsService } from '../../stock/services/stock-movements/stock-movements.service';
+  import { StockMovementsService } from '../../stock/services/stock-movements.service';
 
   @Injectable()
   export class GoodsReceiptsService {
