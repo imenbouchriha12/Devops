@@ -477,7 +477,7 @@ export class InvitationsService {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">🏢 BizManage</div>
+            <div class="logo">🏢 NovaEntra</div>
           </div>
           
           <h1>Vous avez été invité à rejoindre une entreprise</h1>

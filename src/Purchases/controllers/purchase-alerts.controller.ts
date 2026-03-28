@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard }              from '@nestjs/passport';
 import { PurchaseAlertsService }  from '../services/purchase-alerts.service';
-import { AlertStatus }            from '../entities/purchase-alert.entity';
+import { AlertStatus } from '../enum/alertStatus';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('businesses/:businessId/purchase-alerts')

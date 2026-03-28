@@ -28,6 +28,7 @@ import { RecurringInvoicesService } from './services/recurring-invoices.service'
 import { RecurringInvoiceCronService } from './services/recurring-invoice-cron.service';
 import { ClientPortalService } from './services/client-portal.service';
 import { SalesDashboardService } from './services/sales-dashboard.service';
+import { SalesMatchingService } from './services/sales-matching.service';
 import { QuotesController } from './controllers/quotes.controller';
 import { SalesOrdersController } from './controllers/sales-orders.controller';
 import { DeliveryNotesController } from './controllers/delivery-notes.controller';
@@ -40,6 +41,7 @@ import { Client } from '../clients/entities/client.entity';
 import { Business } from '../businesses/entities/business.entity';
 // Added by Alaa for stock module
 import { StockModule } from '../stock/stock.module';
+import { SalesMatchingController } from './controllers/sales-matching.controller';
 
 @Module({
   imports: [
@@ -79,6 +81,7 @@ import { StockModule } from '../stock/stock.module';
     RecurringInvoiceCronService,
     ClientPortalService,
     SalesDashboardService,
+    SalesMatchingService,
   ],
   controllers: [
     QuotesController,
@@ -89,6 +92,7 @@ import { StockModule } from '../stock/stock.module';
     RecurringInvoicesController,
     ClientPortalController,
     SalesDashboardController,
+    SalesMatchingController,
   ],
   exports: [
     QuotesService,

@@ -16,6 +16,12 @@ import { PaymentsModule } from './payments/payments.module';
 // Stock Module
 import { StockModule } from './stock/stock.module';
 
+// Tasks Module
+import { TasksModule } from './tasks/tasks.module';
+
+// Messages Module
+import { MessagesModule } from './messages/messages.module';
+
 // Core Entities
 import { User } from './users/entities/user.entity';
 import { RefreshToken } from './auth/entities/refresh-token.entity';
@@ -44,6 +50,12 @@ import { Payment } from './payments/entities/payment.entity';
 import { Product } from './stock/entities/product.entity';
 import { Category } from './stock/entities/product-category.entity';
 import { StockMovement } from './stock/entities/stock-movement.entity';
+
+// Tasks Entities
+import { Task } from './tasks/entities/task.entity';
+
+// Messages Entities
+import { Message } from './messages/entities/message.entity';
 
 // Purchases Entities
 import { Supplier } from './Purchases/entities/supplier.entity';
@@ -114,6 +126,12 @@ import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.
           Product,
           Category,
           StockMovement,
+
+          // Tasks
+          Task,
+
+          // Messages
+          Message,
         ],
       }),
       inject: [ConfigService],
@@ -136,6 +154,12 @@ import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.
 
     // Stock
     StockModule,
+
+    // Tasks
+    TasksModule,
+
+    // Messages
+    MessagesModule,
   ],
   controllers: [],
   providers: [],
