@@ -19,13 +19,6 @@ export class DeliveryNoteItem {
   @Column({ nullable: true })
   productId: string;
 
-  @ManyToOne('SalesOrderItem', { nullable: true })
-  @JoinColumn({ name: 'salesOrderItemId' })
-  salesOrderItem: any;
-
-  @Column({ nullable: true })
-  salesOrderItemId: string;
-
   @Column()
   description: string;
 

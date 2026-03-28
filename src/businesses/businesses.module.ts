@@ -37,14 +37,6 @@ import { User } from '../users/entities/user.entity';
     InvitationsController,
     BusinessInvitationsController,
   ],
-  exports: [
-    BusinessesService, 
-    BusinessMembersService, 
-    InvitationsService,
-    // ═══════════════════════════════════════════════════════════════
-    // Export TypeORM repositories for guards (Added by Alaa for stock module)
-    TypeOrmModule,
-    // ═══════════════════════════════════════════════════════════════
-  ],
+  exports: [BusinessesService, BusinessMembersService, InvitationsService],
 })
 export class BusinessesModule {}

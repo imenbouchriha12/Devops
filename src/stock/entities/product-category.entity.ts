@@ -4,12 +4,13 @@ import {
   ManyToOne, OneToMany, JoinColumn, Index,
 } from 'typeorm';
 import { Product }   from './product.entity';
-import { Business }  from '../../businesses/entities/business.entity';
+import { Business }  from 'src/businesses/entities/business.entity';
  
-@Entity('categories')
+@Entity('product_categories')
 @Index(['business_id', 'is_active'])
 @Index(['business_id', 'name'])
-export class Category {
+@Index(['parent_id'])
+export class ProductCategory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
  
@@ -17,6 +18,7 @@ export class Category {
   @Index()
   business_id: string;
  
+  // FIX : relation FK vers Business
   @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
   @JoinColumn({ name: 'business_id' })
   business: Business;
@@ -27,15 +29,40 @@ export class Category {
   @Column({ type: 'text', nullable: true })
   description: string | null;
  
+  @Column({ type: 'uuid', nullable: true })
+  parent_id: string | null;
+ 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code: string | null;
+ 
+  @Column({ type: 'integer', default: 0 })
+  sort_order: number;
+ 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  image_url: string | null;
+ 
+  // FIX : snake_case
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
  
+  // FIX : snake_case
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
  
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
  
+  @ManyToOne(() => ProductCategory, (category) => category.children, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'parent_id' })
+  parent: ProductCategory | null;
+ 
+  @OneToMany(() => ProductCategory, (category) => category.parent)
+  children: ProductCategory[];
+ 
   @OneToMany(() => Product, (product) => product.category)
   products: Product[];
 }
+ 
