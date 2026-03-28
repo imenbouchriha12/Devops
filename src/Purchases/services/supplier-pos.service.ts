@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -30,6 +31,7 @@ const TRANSITIONS: Record<POStatus, POStatus[]> = {
 
 @Injectable()
 export class SupplierPOsService {
+  private readonly logger = new Logger(SupplierPOsService.name);
 
   constructor(
     @InjectRepository(SupplierPO)
@@ -174,22 +176,19 @@ async send(businessId: string, id: string) {
     p.sent_at = new Date();
   });
 
-  console.log('=== SEND DEBUG ===');
-  console.log('purchaseMailService existe:', !!this.purchaseMailService);
-  console.log('po.supplier:', po.supplier?.name, po.supplier?.email);
-  console.log('==================');
-
+  // ANOMALIE 3 FIX: Suppression des console.log en production + gestion d'erreur améliorée
   const poWithRelations = await this.poRepo.findOne({
     where:     { id },
     relations: ['items', 'supplier'],
   });
 
-  console.log('poWithRelations.supplier:', poWithRelations?.supplier?.name, poWithRelations?.supplier?.email);
-
-  if (poWithRelations) {
+  if (poWithRelations && poWithRelations.supplier?.email) {
     this.purchaseMailService.sendPurchaseOrder(poWithRelations).catch((err) => {
-      console.log('ERREUR EMAIL:', err.message);
+      // Logger l'erreur au lieu de console.log
+      this.logger.error(`Échec envoi email BC ${po.po_number}: ${err.message}`);
     });
+  } else if (poWithRelations && !poWithRelations.supplier?.email) {
+    this.logger.warn(`BC ${po.po_number}: fournisseur sans email, envoi impossible`);
   }
 
   return po;

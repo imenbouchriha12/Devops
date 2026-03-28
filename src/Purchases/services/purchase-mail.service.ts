@@ -241,7 +241,7 @@ export class PurchaseMailService {
 </html>`;
 
     try {
-      await this.transporter.sendMail({
+      const info = await this.transporter.sendMail({
         from:    `"${businessName}" <${this.from}>`,
         replyTo: businessEmail || this.from,   // ← le fournisseur répond au business
         to:      supplier.email,
@@ -249,8 +249,11 @@ export class PurchaseMailService {
         html,
       });
       this.logger.log(`Email BC ${po.po_number} envoyé à ${supplier.email} (reply-to: ${businessEmail || this.from}).`);
+      this.logger.debug(`Message ID: ${info.messageId}, Response: ${info.response}`);
     } catch (err: any) {
       this.logger.error(`Échec envoi email BC ${po.po_number} à ${supplier.email} : ${err.message}`);
+      this.logger.error(`Stack: ${err.stack}`);
+      throw err; // Propager l'erreur pour que l'utilisateur sache qu'il y a un problème
     }
   }
 

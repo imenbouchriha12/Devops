@@ -46,7 +46,7 @@ interface GeminiResponse {
 export class PoAiGeneratorService {
   private readonly logger = new Logger(PoAiGeneratorService.name);
   private readonly apiKey: string;
-  private readonly apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+  private readonly apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
   constructor(
     private readonly config: ConfigService,

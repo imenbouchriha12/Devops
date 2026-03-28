@@ -43,9 +43,8 @@ import { PurchaseMailService }     from './services/purchase-mail.service';
 import { SupplierPortalService }   from './services/supplier-portal.service';
 import { PurchaseAlertsService }   from './services/purchase-alerts.service';
 import { ThreeWayMatchingService } from './services/three-way-matching.service';
+import { ThreeWayMatchingAIService } from './services/three-way-matching-ai.service';
 import { SupplierScoringService }  from './services/supplier-scoring.service';
-import { OcrService }              from './services/ocr.service';
-import { OcrAiValidatorService }   from './services/ocr-ai-validator.service';
 import { PoAiGeneratorService }    from './services/po-ai-generator.service';
 import { SupplierAiInsightsService } from './services/supplier-ai-insights.service';
  
@@ -58,6 +57,8 @@ import { User } from '../users/entities/user.entity';
 import { SupplierOnboardingController } from './controllers/supplier-onboarding.controller';
 import { SupplierOnboardingService } from './services/supplier-onboarding.service';
 import { SupplierOnboardingPublicController } from './controllers/supplier-onboarding.controller';
+import { PurchaseOcrAiService } from './services/purchase-ocr-ai.service';
+import { OcrService } from './services/ocr.service';
  
 @Module({
   imports: [
@@ -109,9 +110,10 @@ import { SupplierOnboardingPublicController } from './controllers/supplier-onboa
     SupplierPortalService,
     PurchaseAlertsService,
     ThreeWayMatchingService,
+    ThreeWayMatchingAIService,
     SupplierScoringService,
     OcrService,
-    OcrAiValidatorService,
+    PurchaseOcrAiService,
     PoAiGeneratorService,
     SupplierAiInsightsService,
     SupplierOnboardingService 
