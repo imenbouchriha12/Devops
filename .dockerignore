@@ -19,6 +19,3 @@ uploads/sales-ocr-temp/*
 !uploads/.gitkeep
 .prettierrc
 eslint.config.mjs
-tsconfig.json
-tsconfig.build.json
-nest-cli.json
