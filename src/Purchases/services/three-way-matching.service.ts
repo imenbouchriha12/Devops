@@ -206,10 +206,14 @@ export class ThreeWayMatchingService {
 
       if (qtyReceived === 0) {
         lineStatus = 'NOT_RECEIVED';
-        issues.push(`"${poItem.description}" : commandé mais pas réceptionné.`);
+        issues.push(`"${poItem.description}" : commandé mais pas encore réceptionné.`);
       } else if (qtyReceived > qtyOrdered) {
         lineStatus = 'OVER_INVOICED';
         issues.push(`"${poItem.description}" : reçu plus que commandé (${qtyReceived} > ${qtyOrdered}).`);
+      } else if (qtyReceived < qtyOrdered && Math.abs(discrepancyAmt) > 0.005) {
+        // Réception partielle : c'est OK si la facture correspond à ce qui a été reçu
+        // On ne signale PAS d'erreur ici, c'est normal
+        lineStatus = 'OK';
       } else if (discrepancyPct > TOLERANCE_PCT) {
         lineStatus = 'QTY_MISMATCH';
         issues.push(`"${poItem.description}" : écart de quantité (commandé ${qtyOrdered}, reçu ${qtyReceived}).`);
@@ -238,15 +242,19 @@ export class ThreeWayMatchingService {
       : 100;
 
     // 7. Comparaison montant facturé vs montant reçu
+    // IMPORTANT : On compare la facture avec ce qui a été REÇU, pas avec le BC
+    // Si réception partielle, c'est OK si la facture correspond à la réception
     if (Math.abs(totalDiscrep) > 0.005) {
       if (invoicedTotal > receivedTotal) {
         issues.push(`Montant facturé (${invoicedTotal.toFixed(3)} TND) supérieur au montant réceptionné (${receivedTotal.toFixed(3)} TND). Écart : ${Math.abs(totalDiscrep).toFixed(3)} TND.`);
       } else {
-        issues.push(`Montant facturé (${invoicedTotal.toFixed(3)} TND) inférieur au montant réceptionné (${receivedTotal.toFixed(3)} TND). Avoir possible.`);
+        // Facture inférieure à la réception : peut être normal (avoir, remise...)
+        recommendations.push(`Montant facturé inférieur au montant réceptionné. Vérifier si c'est une remise ou un avoir.`);
       }
     }
 
     // 8. Déterminer le statut global
+    // LOGIQUE CORRIGÉE : Réception partielle = OK si facture correspond à ce qui est reçu
     const hasNotReceived  = lineDiscrepancies.some(l => l.status === 'NOT_RECEIVED');
     const hasOverInvoiced = lineDiscrepancies.some(l => l.status === 'OVER_INVOICED');
     const hasQtyMismatch  = lineDiscrepancies.some(l => l.status === 'QTY_MISMATCH');
@@ -264,18 +272,24 @@ export class ThreeWayMatchingService {
       status            = MatchStatus.OVER_INVOICED;
       shouldAutoDispute = true;
       recommendations.push('Mettre en litige — montant facturé supérieur aux marchandises reçues.');
-    } else if (hasNotReceived && discrepancyPct > TOLERANCE_PCT) {
+    } else if (invoicedTotal > receivedTotal && discrepancyPct > TOLERANCE_PCT) {
+      // Facture supérieure à la réception : problème réel
       status            = MatchStatus.MISMATCH;
-      shouldAutoDispute = true;
-      recommendations.push('Vérifier les lignes non réceptionnées avant paiement.');
-    } else if (hasQtyMismatch || discrepancyPct > TOLERANCE_PCT) {
+      shouldAutoDispute = discrepancyPct > 5;
+      recommendations.push(`Écart de ${discrepancyPct.toFixed(2)}% — la facture dépasse ce qui a été reçu.`);
+    } else if (hasQtyMismatch) {
       status            = MatchStatus.MISMATCH;
       shouldAutoDispute = discrepancyPct > 5;
       recommendations.push(`Écart de ${discrepancyPct.toFixed(2)}% — vérifier avec le fournisseur.`);
-    } else if (discrepancyPct <= TOLERANCE_PCT && !hasNotReceived) {
+    } else if (discrepancyPct <= TOLERANCE_PCT) {
+      // Facture correspond à la réception (même si réception partielle)
       status            = allOk ? MatchStatus.MATCHED : MatchStatus.PARTIAL_MATCH;
       canAutoApprove    = true;
-      recommendations.push('Rapprochement validé — approbation automatique possible.');
+      if (receivedTotal < poTotal) {
+        recommendations.push('Réception partielle : la facture correspond à ce qui a été reçu. Approbation possible.');
+      } else {
+        recommendations.push('Rapprochement validé — approbation automatique possible.');
+      }
     } else {
       status = MatchStatus.PARTIAL_MATCH;
       recommendations.push('Vérification manuelle recommandée.');

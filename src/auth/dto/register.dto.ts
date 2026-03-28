@@ -57,7 +57,9 @@ class BusinessInfoDto {
   @IsOptional()
   @IsString()
   logo?: string;
-
+  @IsOptional()
+  @IsEmail()
+  email?: string; // ← AJOUTER CE CHAMP
   @IsOptional()
   @IsString()
   @MinLength(7)

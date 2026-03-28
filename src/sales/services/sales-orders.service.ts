@@ -230,6 +230,7 @@ export class SalesOrdersService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      // 1. If invoiced, unlink the invoice
       if (order.status === SalesOrderStatus.INVOICED) {
         await manager.query(
           `UPDATE invoices SET sales_order_id = NULL WHERE sales_order_id = $1`,
@@ -237,7 +238,20 @@ export class SalesOrdersService {
         );
       }
 
+      // 2. Delete delivery notes and their items
+      const deliveryNotes = await manager.find(DeliveryNote, {
+        where: { salesOrderId: id },
+      });
+      
+      for (const dn of deliveryNotes) {
+        await manager.delete(DeliveryNoteItem, { deliveryNoteId: dn.id });
+        await manager.delete(DeliveryNote, { id: dn.id });
+      }
+
+      // 3. Delete order items
       await manager.delete(SalesOrderItem, { salesOrderId: id });
+      
+      // 4. Delete the order
       await manager.delete(SalesOrder, { id, businessId });
     });
   }
