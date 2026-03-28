@@ -12,8 +12,9 @@ import { User } from '../../users/entities/user.entity';
 import { Task } from './task.entity';
 import { Quote } from '../../sales/entities/quote.entity';
 import { SalesOrder } from '../../sales/entities/sales-order.entity';
-import { SupplierPO } from '../../Purchases/entities/supplier-po.entity';
-import { PurchaseInvoice } from '../../Purchases/entities/purchase-invoice.entity';
+import { SupplierPO } from 'src/Purchases/entities/supplier-po.entity';
+import { PurchaseInvoice } from 'src/Purchases/entities/purchase-invoice.entity';
+
 
 export enum CommentEntityType {
   TASK = 'TASK',

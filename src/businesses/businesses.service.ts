@@ -10,6 +10,7 @@ import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
 import { TaxRate } from './entities/tax-rate.entity';
 import { UpdateTaxRateDto } from './dto/update-tax-rate.dto';
 import { CreateTaxRateDto } from './dto/create-tax-rate.dto';
+import { Tenant } from '../tenants/entities/tenant.entity';
 
 
 @Injectable()
@@ -21,17 +22,43 @@ export class BusinessesService {
     private readonly settingsRepository: Repository<BusinessSettings>,
     @InjectRepository(TaxRate)
     private readonly taxRateRepository: Repository<TaxRate>,
+    @InjectRepository(Tenant)
+    private readonly tenantRepository: Repository<Tenant>,
   ) {}
+
+  // ─── Get My Businesses (by user ID) ──────────────────────────────────────
+  async getMyBusinesses(userId: string): Promise<Business[]> {
+    // Find tenant owned by this user
+    const tenant = await this.tenantRepository.findOne({
+      where: { ownerId: userId },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found for this user');
+    }
+
+    // Get all businesses for this tenant
+    return this.businessRepository.find({
+      where: { tenant_id: tenant.id },
+      order: { created_at: 'DESC' },
+    });
+  }
 
   // ─── Create Business ─────────────────────────────────────────────────────
   async create(dto: CreateBusinessDto): Promise<Business> {
+    console.log('Service received DTO:', dto);
+    
     // Default currency to TND if not provided
     const business = this.businessRepository.create({
       ...dto,
       currency: dto.currency || 'TND',
     });
 
+    console.log('Business entity before save:', business);
+
     const saved = await this.businessRepository.save(business);
+
+    console.log('Business entity after save:', saved);
 
     // Create default settings for this business
     await this.settingsRepository.save({

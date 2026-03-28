@@ -5,7 +5,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
+  
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
 
@@ -21,10 +21,13 @@ export class User {
   password_hash!: string;
 
   @Column()
-  name!: string;
+  firstName!: string;
+
+  @Column()
+  lastName!: string;
 
   @Column({ nullable: true })
-  phone_number?: string;
+  phone?: string;
 
   @Column({
     type: 'enum',
@@ -40,16 +43,16 @@ export class User {
   is_suspended: boolean;
 
   @Column({ nullable: true })
-  avatar_url?: string;
+  avatarUrl?: string;
 
   @Column({ nullable: true })
-  job_title?: string;
+  jobTitle?: string;
 
-  @Column({ nullable: true })
-  password_reset_token?: string;
+  @Column({ default: 'fr' })
+  preferredLanguage!: string;
 
-  @Column({ type: 'timestamp', nullable: true })
-  password_reset_expires?: Date;
+  @Column({ default: 'Africa/Tunis' })
+  timezone!: string;
 
   @CreateDateColumn()
   created_at!: Date;

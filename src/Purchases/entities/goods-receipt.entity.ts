@@ -11,23 +11,32 @@ import {
 import { SupplierPO }       from './supplier-po.entity';
 import { Supplier }         from './supplier.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
+import { Business } from '../../businesses/entities/business.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('goods_receipts')
 @Index(['business_id'])
 @Index(['supplier_po_id'])
 @Index(['supplier_id'])
+@Index(['business_id', 'gr_number'], { unique: true })
 export class GoodsReceipt {
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   // Numéro auto-généré : BR-2024-0001
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50,})
   gr_number: string;
 
+  // ── Multitenant ───────────────────────────────────────────────
   @Column({ type: 'uuid' })
   business_id: string;
 
+  @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
+
+  // ── Bon de commande source ────────────────────────────────────
   @Column({ type: 'uuid' })
   supplier_po_id: string;
 
@@ -40,9 +49,14 @@ export class GoodsReceipt {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  // ID de l'utilisateur qui a validé la réception
+  // ── Utilisateur qui a validé la réception ─────────────────────
+  // Lien vers User (même module Auth) — eager:false pour performance
   @Column({ type: 'uuid' })
   received_by: string;
+
+  @ManyToOne(() => User, { eager: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'received_by' })
+  receiver: User;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

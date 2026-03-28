@@ -1,9 +1,10 @@
 // src/auth/auth.service.ts
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
+import { Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
@@ -17,7 +18,6 @@ import { Role } from 'src/users/enums/role.enum';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { TaxRate } from '../businesses/entities/tax-rate.entity';
-
 
 @Injectable()
 export class AuthService {
@@ -72,7 +72,7 @@ async validateUser(email: string, password: string): Promise<User | null> {
  
 
 // src/auth/auth.service.ts
-async register(registerDto: RegisterDto): Promise<{ access_token: string; refresh_token: string; user: any }> {
+async register(registerDto: RegisterDto, res: Response) {
   // Check if user already exists
   const existingUser = await this.usersRepository.findOne({
     where: { email: registerDto.email },
@@ -92,9 +92,10 @@ async register(registerDto: RegisterDto): Promise<{ access_token: string; refres
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const user = queryRunner.manager.create(User, {
       email: registerDto.email,
-      name: registerDto.name,
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
       password_hash: hashedPassword,
-      phone_number: registerDto.phone_number,
+      phone: registerDto.phone_number,
       role: Role.BUSINESS_OWNER,
       is_verified: false,
       is_suspended: false,
@@ -136,15 +137,16 @@ async register(registerDto: RegisterDto): Promise<{ access_token: string; refres
     // Commit transaction
     await queryRunner.commitTransaction();
 
-    // 5. Generate tokens
-    const tokens = await this.generateTokens(user);
+    // 5. Generate tokens and set cookies
+    await this.generateTokensAndSetCookies(user, res);
 
     return {
-      ...tokens,
+      message: 'Registration successful',
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         role: user.role,
       },
     };
@@ -160,21 +162,23 @@ async register(registerDto: RegisterDto): Promise<{ access_token: string; refres
 }
   // ─── Login ───────────────────────────────────────────────────────────────
   // This is called AFTER LocalStrategy already validated the user
-  async login(user: User): Promise<{ access_token: string; refresh_token: string; user: any }> {
-    const tokens = await this.generateTokens(user);
+  async login(user: User, res: Response): Promise<{ message: string; user: any }> {
+    await this.generateTokensAndSetCookies(user, res);
+    
     return {
-      ...tokens,
+      message: 'Login successful',
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         role: user.role,
       },
     };
   }
 
   // ─── Refresh Token ───────────────────────────────────────────────────────
-  async refreshTokens(refreshToken: string): Promise<{ access_token: string; refresh_token: string; user: any }> {
+  async refreshTokens(refreshToken: string, res: Response): Promise<{ message: string; user: any }> {
     // Find the refresh token in DB
     const tokenRecord = await this.refreshTokenRepo.findOne({
       where: { token: refreshToken },
@@ -183,20 +187,22 @@ async register(registerDto: RegisterDto): Promise<{ access_token: string; refres
 
     // If not found, revoked, or expired → reject
     if (!tokenRecord || tokenRecord.is_revoked || tokenRecord.expires_at < new Date()) {
-      throw new BadRequestException('Invalid or expired refresh token');
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     // Revoke the old refresh token (rotation — each refresh gives a new one)
     await this.refreshTokenRepo.update(tokenRecord.id, { is_revoked: true });
 
-    // Issue brand new tokens
-    const tokens = await this.generateTokens(tokenRecord.user);
+    // Issue brand new tokens and set cookies
+    await this.generateTokensAndSetCookies(tokenRecord.user, res);
+
     return {
-      ...tokens,
+      message: 'Tokens refreshed successfully',
       user: {
         id: tokenRecord.user.id,
         email: tokenRecord.user.email,
-        name: tokenRecord.user.name,
+        firstName: tokenRecord.user.firstName,
+        lastName: tokenRecord.user.lastName,
         role: tokenRecord.user.role,
       },
     };
@@ -212,33 +218,80 @@ async register(registerDto: RegisterDto): Promise<{ access_token: string; refres
     }
   }
 
-  // ─── Token Generation (private helper) ──────────────────────────────────
+
+// ─── Token Generation (private helper) ──────────────────────────────────
   private async generateTokens(user: User): Promise<{ access_token: string; refresh_token: string }> {
-    // Access token payload — this is what gets decoded on every request
+
+    // ── Trouver le business_id lié à cet utilisateur ─────────────────
+    let business_id: string | null = null;
+
+    try {
+      const tenant = await this.tenantsRepository.findOne({
+        where: { ownerId: user.id },
+      });
+
+      if (tenant) {
+        const business = await this.businessesRepository.findOne({
+          where: { tenant_id: tenant.id },
+          order: { created_at: 'ASC' },
+        });
+        if (business) {
+          business_id = business.id;
+        }
+      }
+    }  catch (error: any) {
+  console.warn('Could not resolve business_id for JWT payload:', error?.message);
+}
+
+    // ── Construire le payload JWT ─────────────────────────────────────
     const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
+      sub:         user.id,
+      email:       user.email,
+      role:        user.role,
+      business_id: business_id,  // null pour PLATFORM_ADMIN
     };
 
-const access_token = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_ACCESS_SECRET')!,
+    const access_token = this.jwtService.sign(payload, {
+      secret:    this.configService.get<string>('JWT_ACCESS_SECRET')!,
       expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRY') as any,
     });
 
-    // Refresh token — stored in DB, long-lived
+    // ── Refresh token (stocké en DB) ──────────────────────────────────
     const refresh_token = uuidv4();
-    const expiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRY'); // '7d'
     const expires_at = new Date();
-    expires_at.setDate(expires_at.getDate() + 7); // 7 days from now
+    expires_at.setDate(expires_at.getDate() + 7); // 7 jours
 
     await this.refreshTokenRepo.save({
-      token: refresh_token,
+      token:   refresh_token,
       user_id: user.id,
       expires_at,
     });
 
     return { access_token, refresh_token };
+  }
+
+  // ─── Generate Tokens and Set HTTP-only Cookies ───────────────────────────
+  private async generateTokensAndSetCookies(user: User, res: Response): Promise<void> {
+    const { access_token, refresh_token } = await this.generateTokens(user);
+    
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    
+    // Set access_token cookie (15 minutes)
+    res.cookie('access_token', access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax', // 'lax' for localhost development
+      maxAge: 15 * 60 * 1000, // 15 minutes in milliseconds
+    });
+    
+    // Set refresh_token cookie (7 days)
+    res.cookie('refresh_token', refresh_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax', // 'lax' for localhost development
+      path: '/auth/refresh',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    });
   }
 
   // ─── Update Profile ──────────────────────────────────────────────────────
@@ -258,8 +311,12 @@ const access_token = this.jwtService.sign(payload, {
       user.is_verified = false; // New email needs verification
     }
 
-    if (dto.name) {
-      user.name = dto.name;
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName;
+    }
+
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName;
     }
 
     if (dto.password) {
@@ -284,7 +341,8 @@ const access_token = this.jwtService.sign(payload, {
     await this.resetTokenRepo.update(tokenRecord.id, { is_used: true });
 
     // ✅ NEW: Send welcome email
-    await this.emailService.sendWelcomeEmail(tokenRecord.user.email, tokenRecord.user.name);
+    const fullName = `${tokenRecord.user.firstName} ${tokenRecord.user.lastName}`;
+    await this.emailService.sendWelcomeEmail(tokenRecord.user.email, fullName);
   }
   // ─── Forgot Password ─────────────────────────────────────────────────────
   async forgotPassword(email: string): Promise<void> {
@@ -294,84 +352,38 @@ const access_token = this.jwtService.sign(payload, {
       return; // Silently succeed (don't reveal if email exists)
     }
 
-    // Generate secure random token
-    const crypto = await import('crypto');
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    
-    // Hash the token before storing
-    const hashedToken = await bcrypt.hash(rawToken, 10);
-    
-    // Set expiry to 1 hour from now
+    const token = uuidv4();
     const expires_at = new Date();
-    expires_at.setHours(expires_at.getHours() + 1);
+    expires_at.setHours(expires_at.getHours() + 1); // 1 hour
 
-    // Update user with reset token and expiry
-    await this.usersRepository.update(user.id, {
-      password_reset_token: hashedToken,
-      password_reset_expires: expires_at,
+    await this.resetTokenRepo.save({
+      token,
+      user_id: user.id,
+      type: TokenType.PASSWORD_RESET,
+      expires_at,
     });
 
-    // Send email with raw token (not hashed)
-    await this.emailService.sendPasswordResetEmail(user.email, rawToken, user.name);
+    // ✅ NEW: Send actual email instead of console.log
+    const fullName = `${user.firstName} ${user.lastName}`;
+    await this.emailService.sendPasswordResetEmail(user.email, token, fullName);
   }
-
   // ─── Reset Password ──────────────────────────────────────────────────────
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    // Find all users with non-null reset tokens that haven't expired
-    const users = await this.usersRepository.find({
-      where: {
-        password_reset_token: Not(IsNull()),
-      },
+    const tokenRecord = await this.resetTokenRepo.findOne({
+      where: { token, type: TokenType.PASSWORD_RESET },
+      relations: ['user'],
     });
 
-    // Find the user whose hashed token matches the provided token
-    let matchedUser: User | null = null;
-    for (const user of users) {
-      if (user.password_reset_token && user.password_reset_expires) {
-        // Check if token matches and hasn't expired
-        const tokenMatches = await bcrypt.compare(token, user.password_reset_token);
-        const notExpired = user.password_reset_expires > new Date();
-        
-        if (tokenMatches && notExpired) {
-          matchedUser = user;
-          break;
-        }
-      }
-    }
-
-    if (!matchedUser) {
+    if (!tokenRecord || tokenRecord.is_used || tokenRecord.expires_at < new Date()) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    // Hash the new password
     const password_hash = await bcrypt.hash(newPassword, 12);
-    
-    // Update password and clear reset token fields
-    await this.usersRepository.update(matchedUser.id, {
+    await this.usersService.updateUser(tokenRecord.user.id, {
+      ...tokenRecord.user,
       password_hash,
-      password_reset_token: () => 'NULL',
-      password_reset_expires: () => 'NULL',
     });
-  }
 
-  // ─── Change Password (for logged-in users) ──────────────────────────────
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
-    // Find user
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!isPasswordValid) {
-      throw new BadRequestException('Current password is incorrect');
-    }
-
-    // Hash new password
-    const password_hash = await bcrypt.hash(newPassword, 12);
-
-    // Update password
-    await this.usersRepository.update(userId, { password_hash });
+    await this.resetTokenRepo.update(tokenRecord.id, { is_used: true });
   }
 }

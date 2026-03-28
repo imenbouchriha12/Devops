@@ -2,23 +2,23 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
-  Index,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { Invoice } from './invoice.entity';
+import { Business } from '../../businesses/entities/business.entity';
+import { Client } from '../../clients/entities/client.entity';
 
 export enum RecurringFrequency {
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
   MONTHLY = 'MONTHLY',
   QUARTERLY = 'QUARTERLY',
-  YEARLY = 'YEARLY'
+  YEARLY = 'YEARLY',
 }
 
 @Entity('recurring_invoices')
-@Index(['business_id', 'is_active'])
-@Index(['next_generation'])
 export class RecurringInvoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -27,15 +27,14 @@ export class RecurringInvoice {
   business_id: string;
 
   @Column({ type: 'uuid' })
-  invoice_id: string;
+  client_id: string;
 
-  @ManyToOne(() => Invoice, { eager: true })
-  @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice;
+  @Column({ length: 100 })
+  description: string;
 
   @Column({
     type: 'enum',
-    enum: RecurringFrequency
+    enum: RecurringFrequency,
   })
   frequency: RecurringFrequency;
 
@@ -43,16 +42,36 @@ export class RecurringInvoice {
   start_date: Date;
 
   @Column({ type: 'date', nullable: true })
-  end_date: Date | null;
-
-  @Column({ type: 'date', nullable: true })
-  last_generated: Date | null;
+  end_date: Date;
 
   @Column({ type: 'date' })
-  next_generation: Date;
+  next_invoice_date: Date;
+
+  @Column({ type: 'date', nullable: true })
+  last_generated_date: Date;
+
+  @Column({ type: 'decimal', precision: 10, scale: 3 })
+  amount: number;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 19 })
+  tax_rate: number;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
 
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  invoices_generated: number;
+
+  @ManyToOne(() => Business)
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
+
+  @ManyToOne(() => Client)
+  @JoinColumn({ name: 'client_id' })
+  client: Client;
 
   @CreateDateColumn()
   created_at: Date;

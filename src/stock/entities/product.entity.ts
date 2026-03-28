@@ -1,123 +1,149 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  OneToMany,
-  JoinColumn,
-  Index,
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn,
+  ManyToOne, OneToMany, JoinColumn, Index,
 } from 'typeorm';
-import { ProductCategory } from './product-category.entity';
-import { StockMovement } from './stock-movement.entity';
+
+import { Category }         from './product-category.entity';
+import { StockMovement }    from './stock-movement.entity';
+import { SupplierPOItem }   from '../../Purchases/entities/supplier-po-item.entity';
+import { GoodsReceiptItem } from '../../Purchases/entities/goods-receipt-item.entity';
+import { Business }         from '../../businesses/entities/business.entity';
+
+/**
+ * 🔥 Transformer: converts DECIMAL <-> number
+ */
+const decimalTransformer = {
+  to: (value: number) => value,
+  from: (value: string | null): number => value ? parseFloat(value) : 0,
+};
 
 @Entity('products')
-@Index(['business_id', 'isActive'])
-@Index(['business_id', 'sku'])
+@Index(['business_id', 'is_active'])
+@Index(['business_id', 'reference'])
 @Index(['category_id'])
 export class Product {
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Multi-tenant isolation: each business has its own products
   @Column({ type: 'uuid' })
   @Index()
   business_id: string;
+
+  @ManyToOne(() => Business, { onDelete: 'CASCADE', eager: false })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
+
+  // -----------------------------
+  // 🏷️ BASIC INFO
+  // -----------------------------
 
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
   @Column({ type: 'varchar', length: 100 })
   @Index()
-  sku: string;
+  reference: string;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  // Selling price (HT - excluding tax)
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
-  price: number;
+  // -----------------------------
+  // 🗂️ CATEGORY
+  // -----------------------------
 
-  // Purchase cost (used for stock valuation)
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
-  cost: number | null;
-
-  // Current stock quantity (updated by stock movements)
-  @Column({ type: 'int', default: 0 })
-  quantity: number;
-
-  // Minimum quantity threshold for reorder alerts
-  @Column({ type: 'int', default: 0 })
-  minQuantity: number;
-
-  // Product category
   @Column({ type: 'uuid', nullable: true })
   category_id: string | null;
 
-  // Default supplier for this product
-  @Column({ type: 'uuid', nullable: true })
-  default_supplier_id: string | null;
-
-  // Unit of measure (e.g., 'pcs', 'kg', 'L', 'm')
-  @Column({ type: 'varchar', length: 20, default: 'pcs' })
-  unit: string;
-
-  // Barcode for scanning
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  barcode: string | null;
-
-  // Product weight (for shipping calculations)
-  @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
-  weight: number | null;
-
-  // Product dimensions (stored as JSON)
-  @Column({ type: 'jsonb', nullable: true })
-  dimensions: {
-    length?: number;
-    width?: number;
-    height?: number;
-    unit?: string; // 'cm', 'm', 'in'
-  } | null;
-
-  // Tax rate applicable to this product
-  @Column({ type: 'decimal', precision: 5, scale: 2, default: 19 })
-  tax_rate: number;
-
-  // Track inventory for this product
-  @Column({ type: 'boolean', default: true })
-  track_inventory: boolean;
-
-  // Product type: 'product', 'service', 'bundle'
-  @Column({ type: 'varchar', length: 20, default: 'product' })
-  type: string;
-
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
-
-  // ── Relations ────────────────────────────────────────────────
-  
-  // Category relation
-  @ManyToOne(() => ProductCategory, (category) => category.products, {
+  @ManyToOne(() => Category, (category) => category.products, {
     nullable: true,
     onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'category_id' })
-  category: ProductCategory;
+  category: Category | null;
 
-  // Stock movements history
+  // -----------------------------
+  // 📦 UNIT & PRICING
+  // -----------------------------
+
+  @Column({ type: 'varchar', length: 50, default: 'pièce' })
+  unit: string;
+
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 3,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  sale_price_ht: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 3,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  purchase_price_ht: number;
+
+  @Column({ type: 'uuid', nullable: true })
+  tax_rate_id: string | null;
+
+  // -----------------------------
+  // 📊 STOCK (CORE)
+  // -----------------------------
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 3,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  current_stock: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 3,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  min_stock_threshold: number;
+
+  @Column({ type: 'boolean', default: true })
+  is_stockable: boolean;
+
+  // -----------------------------
+  // 🔎 EXTRA
+  // -----------------------------
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  barcode: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  is_active: boolean;
+
+  // -----------------------------
+  // 🕒 TIMESTAMPS
+  // -----------------------------
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  created_at: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updated_at: Date;
+
+  // -----------------------------
+  // 🔗 RELATIONS
+  // -----------------------------
+
   @OneToMany(() => StockMovement, (movement) => movement.product)
-  stockMovements: StockMovement[];
+  stock_movements: StockMovement[];
 
-  // Relations with other modules (lazy loaded to avoid circular dependencies)
-  
-  // Sales module relations
+  // Sales module relations (lazy string refs)
   @OneToMany('SalesOrderItem', 'product')
   salesOrderItems: any[];
 
@@ -130,10 +156,10 @@ export class Product {
   @OneToMany('StockExitItem', 'product')
   stockExitItems: any[];
 
-  // Purchase module relations
-  @OneToMany('SupplierPOItem', 'product')
-  supplierPOItems: any[];
+  // Purchases module relations
+  @OneToMany(() => SupplierPOItem, (item) => item.product)
+  supplierPOItems: SupplierPOItem[];
 
-  @OneToMany('GoodsReceiptItem', 'product')
-  goodsReceiptItems: any[];
+  @OneToMany(() => GoodsReceiptItem, (item) => item.product)
+  goodsReceiptItems: GoodsReceiptItem[];
 }

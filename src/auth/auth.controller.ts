@@ -10,11 +10,14 @@ import {
   HttpStatus,
   Response,
   Patch,
-  BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Response as ExpressResponse } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh.dto';
 import { Roles } from './decorators/roles.decorators';
 import { RolesGuard } from './guards/roles.guard';
 import { Role } from '../users/enums/role.enum';
@@ -22,7 +25,6 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -31,33 +33,8 @@ export class AuthController {
   // ─── POST /auth/register ─────────────────────────────────────────────────
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto, @Response({ passthrough: true }) res) {
-    const tokens = await this.authService.register(dto);
-    
-    // Set HTTP-only cookies
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    // Access token cookie (15 minutes)
-    res.cookie('access_token', tokens.access_token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000,
-    });
-    
-    // Refresh token cookie (7 days)
-    res.cookie('refresh_token', tokens.refresh_token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/auth/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-    
-    // Return user payload
-    return {
-      user: tokens.user,
-    };
+  async register(@Body() dto: RegisterDto, @Response({ passthrough: true }) res: ExpressResponse) {
+    return this.authService.register(dto, res);
   }
 
   // ─── POST /auth/login ────────────────────────────────────────────────────
@@ -67,91 +44,47 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('local'))
   async login(@Request() req, @Response({ passthrough: true }) res) {
-    const tokens = await this.authService.login(req.user);
-    
-    // Set HTTP-only cookies
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    // Access token cookie (15 minutes)
-    res.cookie('access_token', tokens.access_token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutes in milliseconds
-    });
-    
-    // Refresh token cookie (7 days)
-    res.cookie('refresh_token', tokens.refresh_token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/auth/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
-    });
-    
-    // Return user payload (not tokens)
-    return {
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        name: req.user.name,
-        role: req.user.role,
-      },
-    };
+    return this.authService.login(req.user, res);
   }
 
   // ─── POST /auth/refresh ──────────────────────────────────────────────────
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Request() req, @Response({ passthrough: true }) res) {
+  async refresh(@Request() req, @Response({ passthrough: true }) res: ExpressResponse) {
     const refreshToken = req.cookies?.refresh_token;
     
     if (!refreshToken) {
-      // Clear cookies and return 401
-      res.clearCookie('access_token');
-      res.clearCookie('refresh_token', { path: '/auth/refresh' });
-      throw new BadRequestException('Refresh token not found');
+      throw new UnauthorizedException('Refresh token not found');
     }
     
-    try {
-      const tokens = await this.authService.refreshTokens(refreshToken);
-      
-      // Set new access token cookie
-      const isProduction = process.env.NODE_ENV === 'production';
-      res.cookie('access_token', tokens.access_token, {
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: 'strict',
-        maxAge: 15 * 60 * 1000, // 15 minutes
-      });
-      
-      // Return user payload from new access token
-      return {
-        user: tokens.user,
-      };
-    } catch (error) {
-      // Clear cookies on error
-      res.clearCookie('access_token');
-      res.clearCookie('refresh_token', { path: '/auth/refresh' });
-      throw error;
-    }
+    return this.authService.refreshTokens(refreshToken, res);
   }
 
   // ─── POST /auth/logout ───────────────────────────────────────────────────
-  // You must be logged in (have a valid access token) to logout.
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'))
-  async logout(@Request() req, @Response({ passthrough: true }) res) {
+  async logout(@Request() req, @Response({ passthrough: true }) res: ExpressResponse) {
     const refreshToken = req.cookies?.refresh_token;
     
     if (refreshToken) {
       await this.authService.logout(refreshToken);
     }
     
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     // Clear both cookies
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+    });
+    
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/auth/refresh',
+    });
     
     return { message: 'Logged out successfully' };
   }
@@ -226,14 +159,5 @@ export class AuthController {
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.authService.resetPassword(dto.token, dto.newPassword);
     return { message: 'Password reset successfully' };
-  }
-
-  // ─── POST /auth/change-password ──────────────────────────────────────────
-  @Post('change-password')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'))
-  async changePassword(@Request() req, @Body() dto: ChangePasswordDto) {
-    await this.authService.changePassword(req.user.id, dto.currentPassword, dto.newPassword);
-    return { message: 'Password changed successfully' };
   }
 }
