@@ -19,6 +19,9 @@ import { StockModule } from './stock/stock.module';
 // Tasks Module
 import { TasksModule } from './tasks/tasks.module';
 
+// Messages Module
+import { MessagesModule } from './messages/messages.module';
+
 // Core Entities
 import { User } from './users/entities/user.entity';
 import { RefreshToken } from './auth/entities/refresh-token.entity';
@@ -50,6 +53,9 @@ import { StockMovement } from './stock/entities/stock-movement.entity';
 
 // Tasks Entities
 import { Task } from './tasks/entities/task.entity';
+
+// Messages Entities
+import { Message } from './messages/entities/message.entity';
 
 // Purchases Entities
 import { Supplier } from './Purchases/entities/supplier.entity';
@@ -123,6 +129,9 @@ import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.
 
           // Tasks
           Task,
+
+          // Messages
+          Message,
         ],
       }),
       inject: [ConfigService],
@@ -148,6 +157,9 @@ import { SupplierPortalToken } from './Purchases/entities/supplier-portal-token.
 
     // Tasks
     TasksModule,
+
+    // Messages
+    MessagesModule,
   ],
   controllers: [],
   providers: [],

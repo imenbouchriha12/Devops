@@ -29,8 +29,10 @@
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.13",
+    "@nestjs/platform-socket.io": "^11.1.17",
     "@nestjs/schedule": "^6.1.1",
     "@nestjs/typeorm": "^11.0.0",
+    "@nestjs/websockets": "^11.1.17",
     "@types/cookie-parser": "^1.4.10",
     "@types/sharp": "^0.31.1",
     "axios": "^1.13.6",
@@ -53,6 +55,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.5",
+    "socket.io": "^4.8.3",
     "typeorm": "^0.3.28",
     "uuid": "^13.0.0",
     "zod": "^4.3.6"
