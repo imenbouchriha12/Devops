@@ -42,9 +42,9 @@ export class SalesDashboardAiService {
       this.model = null;
     } else {
       const genAI = new GoogleGenerativeAI(apiKey);
-      // Utiliser gemini-pro (version stable et largement disponible)
-      this.model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-      this.logger.log('Service dashboard AI initialisé avec succès (gemini-pro)');
+      // Utiliser gemini-2.5-flash (version stable et largement disponible)
+      this.model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      this.logger.log('Service dashboard AI initialisé avec succès (gemini-2.5-flash)');
     }
   }
 

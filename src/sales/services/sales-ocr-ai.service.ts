@@ -51,8 +51,8 @@ export class SalesOcrAiService {
     }
 
     try {
-      // Utiliser gemini-pro (version stable et largement disponible)
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+      // Utiliser gemini-2.5-flash (version stable et largement disponible)
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const prompt = `
 Tu es un expert en extraction de données de documents commerciaux (factures, devis, bons de livraison, commandes).
@@ -138,8 +138,8 @@ RÈGLES:
     }
 
     try {
-      // Utiliser gemini-pro-vision (version stable pour analyse d'images)
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+      // Utiliser gemini-2.5-flash (version stable pour analyse d'images)
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const imagePart = {
         inlineData: {

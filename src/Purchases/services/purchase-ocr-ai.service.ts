@@ -39,7 +39,7 @@ interface GeminiResponse {
 export class PurchaseOcrAiService {
   private readonly logger = new Logger(PurchaseOcrAiService.name);
   private readonly apiKey: string;
-  private readonly apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  private readonly apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
   constructor(private readonly config: ConfigService) {
     this.apiKey = this.config.get<string>('GEMINI_API_KEY', '');

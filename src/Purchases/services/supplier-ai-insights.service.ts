@@ -64,7 +64,7 @@ export class SupplierAiInsightsService {
   private readonly logger = new Logger(SupplierAiInsightsService.name);
   private readonly apiKey: string;
   private readonly apiUrl =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 
   constructor(private readonly config: ConfigService) {
