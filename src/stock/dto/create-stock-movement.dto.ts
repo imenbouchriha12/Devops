@@ -1,19 +1,24 @@
-import { IsUUID, IsEnum, IsInt, IsString, IsOptional } from 'class-validator';
+import { IsUUID, IsEnum, IsNumber, IsString, IsOptional, Min } from 'class-validator';
 import { StockMovementType } from '../enums/stock-movement-type.enum';
 
 export class CreateStockMovementDto {
   @IsUUID()
-  productId: string;
+  product_id: string;
 
   @IsEnum(StockMovementType)
   type: StockMovementType;
 
-  @IsInt()
+  @IsNumber()
+  @Min(0)
   quantity: number;
 
   @IsOptional()
   @IsString()
-  reference?: string;
+  source_type?: string;
+
+  @IsOptional()
+  @IsString()
+  source_id?: string;
 
   @IsOptional()
   @IsString()

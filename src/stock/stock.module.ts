@@ -8,12 +8,13 @@ import { ProductCategoriesService } from './services/product-categories.service'
 import { ProductsService } from './services/products.service';
 import { ProductCategoriesController } from './controllers/product-categories.controller';
 import { ProductsController } from './controllers/products.controller';
+import { StockMovementsController } from './controllers/stock-movements.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Product, ProductCategory, StockMovement]),
   ],
-  controllers: [ProductCategoriesController, ProductsController],
+  controllers: [ProductCategoriesController, ProductsController, StockMovementsController],
   exports: [TypeOrmModule],
   providers: [StockMovementsService, ProductCategoriesService, ProductsService],
 })
