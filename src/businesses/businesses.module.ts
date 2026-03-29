@@ -37,6 +37,11 @@ import { User } from '../users/entities/user.entity';
     InvitationsController,
     BusinessInvitationsController,
   ],
-  exports: [BusinessesService, BusinessMembersService, InvitationsService],
+  exports: [
+    BusinessesService, 
+    BusinessMembersService, 
+    InvitationsService,
+    TypeOrmModule, // Export TypeOrmModule to make repositories available
+  ],
 })
 export class BusinessesModule {}

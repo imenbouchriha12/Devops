@@ -80,21 +80,27 @@ export class DeliveryNotesService {
   }
 
   async update(businessId: string, id: string, dto: UpdateDeliveryNoteDto): Promise<DeliveryNote> {
-    const note = await this.findOne(businessId, id);
-
     return this.dataSource.transaction(async (manager) => {
-      if (dto.deliveryDate !== undefined)
-        note.deliveryDate = new Date(dto.deliveryDate);
-      if (dto.notes !== undefined)
-        note.notes = dto.notes;
-      if (dto.status !== undefined)
-        note.status = dto.status;
+      // 1. Load the note WITHOUT relations to avoid TypeORM cascade re-inserting
+      //    existing items when we call save() on the parent entity.
+      const note = await manager.findOne(DeliveryNote, {
+        where: { id, businessId },
+      });
+      if (!note) throw new NotFoundException(`Bon de livraison introuvable (id: ${id})`);
 
+      // 2. Hard-delete ALL existing items first, before touching the parent.
+      await manager.delete(DeliveryNoteItem, { deliveryNoteId: id });
+
+      // 3. Update scalar fields on the parent.
+      if (dto.deliveryDate !== undefined) note.deliveryDate = new Date(dto.deliveryDate);
+      if (dto.notes !== undefined) note.notes = dto.notes;
+      if (dto.status !== undefined) note.status = dto.status;
+
+      // 4. Save the parent (no items relation loaded → no cascade re-insert).
+      await manager.save(DeliveryNote, note);
+
+      // 5. Insert the new items from the DTO.
       if (dto.items?.length) {
-        await manager.delete(DeliveryNoteItem, { deliveryNoteId: id });
-
-        await manager.save(DeliveryNote, note);
-
         const lines = dto.items.map((item) =>
           manager.create(DeliveryNoteItem, {
             ...item,
@@ -102,10 +108,9 @@ export class DeliveryNotesService {
           }),
         );
         await manager.save(DeliveryNoteItem, lines);
-      } else {
-        await manager.save(DeliveryNote, note);
       }
 
+      // 6. Return fresh entity with relations.
       return manager.findOne(DeliveryNote, {
         where: { id },
         relations: ['items', 'client'],
@@ -134,25 +139,23 @@ export class DeliveryNotesService {
 
   async markDelivered(businessId: string, id: string): Promise<DeliveryNote> {
     const note = await this.findOne(businessId, id);
-    
+
     return this.dataSource.transaction(async (manager) => {
-      // Mark delivery note as delivered
       note.status = 'delivered';
       await manager.save(DeliveryNote, note);
-      
-      // If linked to a sales order, mark the order as delivered too
+
       if (note.salesOrderId) {
         const salesOrder = await manager.findOne(SalesOrder, {
           where: { id: note.salesOrderId, businessId },
         });
-        
+
         if (salesOrder && salesOrder.status === SalesOrderStatus.IN_PROGRESS) {
           salesOrder.status = SalesOrderStatus.DELIVERED;
           salesOrder.deliveryDate = new Date();
           await manager.save(SalesOrder, salesOrder);
         }
       }
-      
+
       return this.findOne(businessId, id);
     });
   }
@@ -166,12 +169,9 @@ export class DeliveryNotesService {
 
   async delete(businessId: string, id: string): Promise<void> {
     const note = await this.findOne(businessId, id);
-    
+
     return this.dataSource.transaction(async (manager) => {
-      // Delete delivery note items first
       await manager.delete(DeliveryNoteItem, { deliveryNoteId: id });
-      
-      // Then delete the delivery note
       await manager.delete(DeliveryNote, { id, businessId });
     });
   }
