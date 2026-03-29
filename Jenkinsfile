@@ -13,7 +13,7 @@ pipeline {
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 45, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         timestamps()
         disableConcurrentBuilds()
     }
@@ -45,8 +45,6 @@ pipeline {
         stage('🔬 SonarQube Analysis') {
         // ─────────────────────────────────────────────
             steps {
-                // ⚠️ Single quotes obligatoires dans sh pour éviter
-                //    l'interpolation Groovy du secret SONAR_TOKEN
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarQube') {
                         sh '''
@@ -126,13 +124,20 @@ pipeline {
                                 echo "💾 Applying PVC..."
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" apply -f pvc.yaml -n production
 
+                                echo "🗄️ Applying PostgreSQL..."
+                                kubectl --kubeconfig="$KUBECONFIG_FILE" apply -f postgres.yaml -n production
+
+                                echo "⏳ Waiting for PostgreSQL to be ready..."
+                                kubectl --kubeconfig="$KUBECONFIG_FILE" wait --for=condition=ready pod \
+                                    -l app=postgres -n production --timeout=3m
+
                                 echo "🔌 Applying Service..."
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" apply -f service.yaml -n production
 
                                 echo "📋 Applying Deployment..."
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" apply -f deployment.yaml -n production
 
-                                echo "⏳ Waiting for rollout..."
+                                echo "⏳ Waiting for backend rollout..."
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" rollout status deployment/backend \
                                     -n production --timeout=10m
                             '''
@@ -150,14 +155,14 @@ pipeline {
                     echo '✅ Verifying deployment...'
                     withCredentials([file(credentialsId: KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG_FILE')]) {
                         sh '''
-                            echo "📊 Deployment status:"
+                            echo "📊 All pods in production:"
+                            kubectl --kubeconfig="$KUBECONFIG_FILE" get pods -n production
+
+                            echo "🔌 All services:"
+                            kubectl --kubeconfig="$KUBECONFIG_FILE" get svc -n production
+
+                            echo "📦 Backend deployment:"
                             kubectl --kubeconfig="$KUBECONFIG_FILE" get deployment backend -n production
-
-                            echo "📦 Pods:"
-                            kubectl --kubeconfig="$KUBECONFIG_FILE" get pods -n production -l app=backend
-
-                            echo "🔌 Service:"
-                            kubectl --kubeconfig="$KUBECONFIG_FILE" get svc backend -n production
 
                             echo "📝 Recent events:"
                             kubectl --kubeconfig="$KUBECONFIG_FILE" get events -n production \
