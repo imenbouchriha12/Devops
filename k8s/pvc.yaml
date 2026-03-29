@@ -5,8 +5,8 @@ metadata:
   namespace: production
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce       # Minikube ne supporte pas ReadWriteMany sans addon NFS
   resources:
     requests:
-      storage: 10Gi
-  storageClassName: standard
+      storage: 1Gi
+  storageClassName: standard   # storageClass par défaut de Minikube

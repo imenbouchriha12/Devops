@@ -7,7 +7,7 @@ metadata:
     app: backend
     version: v1
 spec:
-  replicas: 2
+  replicas: 1                   # 1 replica sur Minikube (ressources limitées)
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: bardaoui/backend:latest
+        image: imen077/backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3001
@@ -42,11 +42,11 @@ spec:
             name: backend-secrets
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: "128Mi"    # Réduit pour Minikube
+            cpu: "100m"
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "256Mi"    # Réduit pour Minikube
+            cpu: "300m"
         livenessProbe:
           httpGet:
             path: /health

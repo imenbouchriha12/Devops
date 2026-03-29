@@ -7,7 +7,6 @@ pipeline {
         IMAGE_TAG                 = "${env.BUILD_NUMBER}"
         DOCKER_CREDENTIALS_ID     = 'docker-credentials'
         KUBECONFIG_CREDENTIALS_ID = 'kubeconfig-file'
-        SONAR_PROJECT_KEY         = 'backend'
         NAMESPACE                 = 'production'
         DEPLOYMENT_NAME           = 'backend'
     }
@@ -46,25 +45,19 @@ pipeline {
         stage('🔬 SonarQube Analysis') {
         // ─────────────────────────────────────────────
             steps {
-                script {
-                    echo '🔬 Running SonarQube analysis...'
-                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                        withSonarQubeEnv('SonarQube') {
-                            sh """
-                                # Installer sonar-scanner si absent
-                                if ! command -v sonar-scanner &> /dev/null; then
-                                    echo "📦 Installing sonar-scanner..."
-                                    npm install -g sonar-scanner --silent
-                                fi
-
-                                sonar-scanner \
-                                  -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                  -Dsonar.sources=src \
-                                  -Dsonar.host.url=http://192.168.33.10:9000 \
-                                  -Dsonar.login=${SONAR_TOKEN} \
-                                  -Dsonar.exclusions=node_modules/**,dist/**,**/*.spec.ts
-                            """
-                        }
+                // ⚠️ Single quotes obligatoires dans sh pour éviter
+                //    l'interpolation Groovy du secret SONAR_TOKEN
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv('SonarQube') {
+                        sh '''
+                            echo "🔬 Running SonarQube analysis..."
+                            sonar-scanner \
+                              -Dsonar.projectKey=backend \
+                              -Dsonar.sources=src \
+                              -Dsonar.host.url=http://192.168.33.10:9000 \
+                              -Dsonar.login=$SONAR_TOKEN \
+                              -Dsonar.exclusions=node_modules/**,dist/**,**/*.spec.ts,**/*.test.ts
+                        '''
                     }
                 }
             }
@@ -184,7 +177,7 @@ pipeline {
             cleanWs()
         }
         failure {
-            echo "❌ ERROR: Deployment failed!"
+            echo "❌ ERROR: Pipeline failed! Check logs above."
             cleanWs()
         }
         unstable {
