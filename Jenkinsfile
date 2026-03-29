@@ -134,7 +134,7 @@ pipeline {
 
                                 echo "⏳ Waiting for rollout..."
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" rollout status deployment/backend \
-                                    -n production --timeout=5m
+                                    -n production --timeout=10m
                             '''
                         }
                     }
