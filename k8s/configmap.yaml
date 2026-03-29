@@ -4,8 +4,8 @@ metadata:
   name: backend-config
   namespace: production
 data:
-  DATABASE_HOST: "postgres-service"
-  DATABASE_PORT: "5432"
-  DATABASE_NAME: "sass_platform1"
-  FRONTEND_URL: "http://192.168.49.2"
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "sass_platform1"
   NODE_ENV: "production"
+  FRONTEND_URL: "http://192.168.49.2"

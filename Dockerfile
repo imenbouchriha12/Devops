@@ -91,5 +91,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 ENTRYPOINT ["dumb-init", "--"]
 # Supprimer le .env pour forcer l'utilisation des variables Kubernetes
 RUN rm -f /app/.env /app/.env.production /app/.env.local 2>/dev/null || true
+# Supprimer le .env pour que Kubernetes injecte les vraies variables
+RUN rm -f /app/.env /app/.env.* 2>/dev/null || true
 # Start the application
 CMD ["node", "dist/main.js"]
