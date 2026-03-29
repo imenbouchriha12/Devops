@@ -162,9 +162,15 @@ Fournis une analyse JSON avec cette structure EXACTE :
   "explanation": "<explication claire en 2-3 phrases>",
   "key_findings": ["<point clé 1>", "<point clé 2>", ...],
   "suggested_next_steps": ["<action 1>", "<action 2>", ...],
-  "dispute_category": "<catégorie ou null>",
+  "dispute_category": "<catégorie ou laisser vide si aucune>",
   "estimated_resolution_time": "<durée estimée>"
 }
+
+IMPORTANT : 
+- Pour dispute_category, utilise une des catégories listées ci-dessous OU laisse une chaîne vide "" si aucun litige
+- N'utilise JAMAIS le mot "null" - utilise "" à la place
+- Assure-toi que toutes les chaînes sont entre guillemets doubles
+- N'inclus AUCUN saut de ligne dans les valeurs de chaînes
 
 CATÉGORIES DE LITIGE DISPONIBLES :
 • PRICE_DISCREPANCY : écart de prix unitaire
@@ -194,7 +200,7 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`;
         explanation:              parsed.explanation || 'Analyse en cours...',
         key_findings:             Array.isArray(parsed.key_findings) ? parsed.key_findings : [],
         suggested_next_steps:     Array.isArray(parsed.suggested_next_steps) ? parsed.suggested_next_steps : [],
-        dispute_category:         parsed.dispute_category || null,
+        dispute_category:         (parsed.dispute_category && parsed.dispute_category !== '') ? parsed.dispute_category : null,
         estimated_resolution_time: parsed.estimated_resolution_time || '1-2 jours ouvrés',
       };
 
@@ -205,9 +211,9 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Analyse de secours (sans IA)
+  // Analyse de secours (sans IA) - PUBLIC pour utilisation directe
   // ─────────────────────────────────────────────────────────────────────────
-  private getFallbackAnalysis(result: ThreeWayMatchResult): AIMatchingAnalysis {
+  public getFallbackAnalysis(result: ThreeWayMatchResult): AIMatchingAnalysis {
     const discrepancyPct = result.discrepancy_pct;
     const hasIssues = result.issues.length > 0;
 

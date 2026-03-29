@@ -18,6 +18,9 @@ export function parseGeminiJson(aiText: string): any {
     .replace(/[\u201C\u201D]/g, '"')  // Guillemets typographiques
     .replace(/[\u2018\u2019]/g, "'")  // Apostrophes typographiques
     .replace(/[\u2013\u2014]/g, '-')  // Tirets longs
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')  // Supprimer les caractères de contrôle
+    .replace(/\n/g, ' ')  // Remplacer les sauts de ligne par des espaces
+    .replace(/\s+/g, ' ')  // Normaliser les espaces multiples
     .trim();
 
   // Stratégie 1: Parsing direct
@@ -25,6 +28,16 @@ export function parseGeminiJson(aiText: string): any {
     return JSON.parse(cleaned);
   } catch (error1) {
     logger.debug(`Stratégie 1 échouée: ${(error1 as Error).message}`);
+  }
+
+  // Stratégie 1.5: Remplacer les valeurs null non-JSON par des chaînes vides
+  try {
+    const fixedNulls = cleaned
+      .replace(/:\s*null\s*([,}])/g, ': ""$1')  // null -> ""
+      .replace(/:\s*undefined\s*([,}])/g, ': ""$1');  // undefined -> ""
+    return JSON.parse(fixedNulls);
+  } catch (error1_5) {
+    logger.debug(`Stratégie 1.5 échouée: ${(error1_5 as Error).message}`);
   }
 
   // Stratégie 2: Extraire le JSON entre accolades
@@ -142,9 +155,20 @@ export function parseGeminiJson(aiText: string): any {
 
   // Toutes les stratégies ont échoué
   logger.error(`Impossible de parser le JSON après 7 tentatives`);
-  logger.debug(`JSON reçu (premiers 500 caractères): ${cleaned.substring(0, 500)}`);
+  logger.debug(`JSON reçu (complet): ${cleaned}`);
   
-  throw new Error('Impossible de parser la réponse IA - format invalide');
+  // Retourner un objet par défaut au lieu de lancer une erreur
+  logger.warn('Retour d\'un objet par défaut pour éviter l\'échec complet');
+  return {
+    confidence_score: 0,
+    risk_level: 'CRITICAL',
+    recommended_action: 'MANUAL_REVIEW',
+    explanation: 'Erreur de parsing - revue manuelle requise',
+    key_findings: [],
+    suggested_next_steps: ['Vérifier manuellement les données'],
+    dispute_category: '',
+    estimated_resolution_time: '1-2 jours ouvrés',
+  };
 }
 
 /**

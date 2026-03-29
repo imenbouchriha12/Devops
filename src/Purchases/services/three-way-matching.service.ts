@@ -333,9 +333,12 @@ export class ThreeWayMatchingService {
     });
 
     // 9. Analyse IA si demandée
+    // TEMPORAIREMENT DÉSACTIVÉ : Gemini retourne du JSON mal formaté
+    // Utilisation de l'analyse de secours (règles métier) à la place
     if (useAI) {
       try {
-        const aiAnalysis = await this.aiService.analyzeMatching(result);
+        // const aiAnalysis = await this.aiService.analyzeMatching(result);
+        const aiAnalysis = this.aiService['getFallbackAnalysis'](result);
         result.ai_analysis = aiAnalysis;
 
         // Ajuster les recommandations basées sur l'IA
