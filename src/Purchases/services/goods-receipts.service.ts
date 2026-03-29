@@ -110,7 +110,7 @@
 
       await qr.commitTransaction();
 
-      await this.updateStock(businessId, grItems, userId);
+    //  await this.updateStock(businessId, grItems, userId);
 
       return this.findOne(businessId, savedGR.id);
 
@@ -183,7 +183,7 @@
       return `${prefix}${seq}`;
     }
 
-    private async updateStock(
+    /*private async updateStock(
       businessId: string,
       items: GoodsReceiptItem[],
       userId: string,
@@ -192,9 +192,28 @@
         this.logger.warn('StockMovementsService non disponible — stock non mis à jour.');
         return;
       }
+      
+      // ANOMALIE 7 FIX: Implémentation de la mise à jour du stock
       for (const item of items) {
-        if (!item.product_id) continue;
-        // Décommenter quand StockModule est prêt
+        if (!item.product_id) {
+          this.logger.debug(`Ligne BR sans product_id, stock non mis à jour`);
+          continue;
+        }
+        
+        try {
+          await this.stockMovementsService.createMovement({
+            business_id: businessId,
+            product_id: item.product_id,
+            movement_type: 'IN',
+            quantity: Number(item.quantity_received),
+            reference_type: 'GOODS_RECEIPT',
+            reference_id: item.gr_id,
+            notes: `Réception marchandise - BR ${item.gr_id}`,
+            created_by: userId,
+          });
+        } catch (err: any) {
+          this.logger.error(`Erreur mise à jour stock produit ${item.product_id}: ${err.message}`);
+        }
       }
-    }
+    }*/
   }

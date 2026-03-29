@@ -31,15 +31,13 @@ export interface OcrAiResult {
 @Injectable()
 export class SalesOcrAiService {
   private readonly logger = new Logger(SalesOcrAiService.name);
-  private genAI: GoogleGenerativeAI;
+  private genAI: GoogleGenerativeAI | null;
 
   constructor(private readonly config: ConfigService) {
-    const apiKey = this.config.get<string>('GEMINI_API_KEY');
-    if (!apiKey) {
-      this.logger.warn('GEMINI_API_KEY non configurée — fonctionnalités AI désactivées');
-    } else {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-    }
+    // Désactiver temporairement Gemini AI car les modèles v1beta sont dépréciés
+    // L'OCR utilisera uniquement l'extraction de texte basique
+    this.genAI = null;
+    this.logger.warn('Gemini AI désactivé - OCR AI non disponible');
   }
 
   /**
@@ -51,7 +49,7 @@ export class SalesOcrAiService {
     }
 
     try {
-      // Utiliser gemini-pro (version stable et largement disponible)
+      // Utiliser gemini-pro (seul modèle stable supporté par SDK v1beta)
       const model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
 
       const prompt = `
@@ -138,7 +136,7 @@ RÈGLES:
     }
 
     try {
-      // Utiliser gemini-pro-vision (version stable pour analyse d'images)
+      // Utiliser gemini-pro-vision (pour analyse d'images, supporté par SDK v1beta)
       const model = this.genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
 
       const imagePart = {

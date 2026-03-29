@@ -40,11 +40,13 @@ import { SalesDashboardController } from './controllers/sales-dashboard.controll
 import { SalesMatchingController } from './controllers/sales-matching.controller';
 import { Client } from '../clients/entities/client.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { BusinessesModule } from '../businesses/businesses.module';
 
 @Module({
   imports: [
     ConfigModule,
     ScheduleModule.forRoot(),
+    BusinessesModule, // Import BusinessesModule to get BusinessAccessGuard dependencies
     TypeOrmModule.forFeature([
       Quote,
       QuoteItem,

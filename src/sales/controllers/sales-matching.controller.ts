@@ -1,33 +1,24 @@
 // src/sales/controllers/sales-matching.controller.ts
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { BusinessAccessGuard } from '../../businesses/guards/business-access.guard';
 import { SalesMatchingService } from '../services/sales-matching.service';
 
-@UseGuards(AuthGuard('jwt'))
 @Controller('businesses/:businessId/sales-matching')
+@UseGuards(JwtAuthGuard, BusinessAccessGuard)
 export class SalesMatchingController {
-  constructor(private readonly svc: SalesMatchingService) {}
+  constructor(private readonly matchingService: SalesMatchingService) {}
 
-  // GET /businesses/:bId/sales-matching/invoice/:invoiceId
-  // Rapprochement d'une facture spécifique
   @Get('invoice/:invoiceId')
-  matchInvoice(
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Param('invoiceId', ParseUUIDPipe) invoiceId: string,
+  async matchInvoice(
+    @Param('businessId') businessId: string,
+    @Param('invoiceId') invoiceId: string,
   ) {
-    return this.svc.matchInvoice(businessId, invoiceId, false);
+    return this.matchingService.matchInvoice(businessId, invoiceId);
   }
 
-  // GET /businesses/:bId/sales-matching/draft
-  // Rapprochement de toutes les factures DRAFT
   @Get('draft')
-  matchAllDraft(@Param('businessId', ParseUUIDPipe) businessId: string) {
-    return this.svc.matchAllDraft(businessId);
+  async getDraftMatches(@Param('businessId') businessId: string) {
+    return this.matchingService.getDraftMatches(businessId);
   }
 }

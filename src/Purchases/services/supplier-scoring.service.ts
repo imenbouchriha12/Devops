@@ -259,13 +259,13 @@ export class SupplierScoringService {
     businessId: string, supplierId: string,
   ): Promise<[ScoreCriteria, Pick<SupplierScore['stats'], 'on_time_deliveries' | 'total_deliveries' | 'on_time_rate_pct'>]> {
 
-      const grs = await this.grRepo.find({
-        where: {
-          business_id: businessId,
-          supplier_po: { supplier_id: supplierId },
-        },
-        relations: ['supplier_po'],
-      });
+    // Récupérer tous les GR avec leurs PO
+    const grs = await this.grRepo.find({
+      where: { business_id: businessId },
+      relations: ['supplier_po'],
+    });
+
+    // Filtrer les GR qui appartiennent au fournisseur
     const supplierGRs = grs.filter(gr => gr.supplier_po?.supplier_id === supplierId);
 
     const total_deliveries = supplierGRs.length;

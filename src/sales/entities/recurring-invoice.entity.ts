@@ -23,13 +23,13 @@ export class RecurringInvoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', nullable: true })
   business_id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', nullable: true })
   client_id: string;
 
-  @Column({ length: 100 })
+  @Column({ length: 100, nullable: true })
   description: string;
 
   @Column({
@@ -38,22 +38,22 @@ export class RecurringInvoice {
   })
   frequency: RecurringFrequency;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', nullable: true })
   start_date: Date;
 
   @Column({ type: 'date', nullable: true })
   end_date: Date;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', nullable: true })
   next_invoice_date: Date;
 
   @Column({ type: 'date', nullable: true })
   last_generated_date: Date;
 
-  @Column({ type: 'decimal', precision: 10, scale: 3 })
+  @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
   amount: number;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, default: 19 })
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 19, nullable: true })
   tax_rate: number;
 
   @Column({ type: 'text', nullable: true })

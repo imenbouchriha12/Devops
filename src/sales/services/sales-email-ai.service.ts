@@ -1,7 +1,6 @@
 // src/sales/services/sales-email-ai.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 
 export interface EmailDraftParams {
   clientName: string;
@@ -20,29 +19,19 @@ export interface EmailDraftResult {
 @Injectable()
 export class SalesEmailAiService {
   private readonly logger = new Logger(SalesEmailAiService.name);
-  private readonly model: GenerativeModel | null;
+  private readonly apiKey: string | null;
 
   constructor(private readonly config: ConfigService) {
-    const apiKey = this.config.get<string>('GEMINI_API_KEY');
-    if (!apiKey) {
+    this.apiKey = this.config.get<string>('GEMINI_API_KEY') || null;
+    if (!this.apiKey) {
       this.logger.warn('GEMINI_API_KEY non configurée — génération email AI désactivée');
-      this.model = null;
     } else {
-      try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        // Utiliser gemini-pro (version stable et largement disponible)
-        this.model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-        this.logger.log('Service email AI initialisé avec succès (gemini-pro)');
-      } catch (error: any) {
-        this.logger.error(`Erreur initialisation Gemini: ${error.message}`);
-        this.model = null;
-      }
+      this.logger.log('Service email AI initialisé avec API REST v1 (gemini-2.5-flash)');
     }
   }
 
   async generateEmailDraft(params: EmailDraftParams): Promise<EmailDraftResult> {
-    if (!this.model) {
-      // Return a simple template if AI is not available
+    if (!this.apiKey) {
       return this.getFallbackEmailDraft(params);
     }
 
@@ -70,9 +59,29 @@ Retourne UNIQUEMENT ce JSON (sans backticks):
 }
       `;
 
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(text);
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 512,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const cleanText = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleanText);
 
       this.logger.log(`Email draft généré pour facture ${params.invoiceNumber} en ${lang}`);
 
@@ -82,7 +91,6 @@ Retourne UNIQUEMENT ce JSON (sans backticks):
       };
     } catch (error: any) {
       this.logger.error(`Erreur génération email draft: ${error.message}`);
-      // Return fallback template on error
       return this.getFallbackEmailDraft(params);
     }
   }
@@ -91,7 +99,6 @@ Retourne UNIQUEMENT ce JSON (sans backticks):
     const lang = params.language === 'ar' ? 'ar' : 'fr';
     
     if (params.isReminder) {
-      // Reminder email
       if (lang === 'ar') {
         return {
           subject: `تذكير بالدفع - فاتورة ${params.invoiceNumber}`,
@@ -104,7 +111,6 @@ Retourne UNIQUEMENT ce JSON (sans backticks):
         };
       }
     } else {
-      // Initial invoice email
       if (lang === 'ar') {
         return {
           subject: `فاتورة ${params.invoiceNumber} - ${params.clientName}`,
