@@ -7,7 +7,7 @@ metadata:
     app: backend
     version: v1
 spec:
-  replicas: 1                   # 1 replica sur Minikube (ressources limitées)
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -42,25 +42,25 @@ spec:
             name: backend-secrets
         resources:
           requests:
-            memory: "128Mi"    # Réduit pour Minikube
+            memory: "128Mi"
             cpu: "100m"
           limits:
-            memory: "256Mi"    # Réduit pour Minikube
+            memory: "256Mi"
             cpu: "300m"
+        # TCP probe — vérifie que le port 3001 est ouvert
+        # pas besoin d'endpoint /health dans le code
         livenessProbe:
-          httpGet:
-            path: /health
+          tcpSocket:
             port: 3001
-          initialDelaySeconds: 30
-          periodSeconds: 10
+          initialDelaySeconds: 60
+          periodSeconds: 15
           timeoutSeconds: 5
           failureThreshold: 3
         readinessProbe:
-          httpGet:
-            path: /health
+          tcpSocket:
             port: 3001
-          initialDelaySeconds: 10
-          periodSeconds: 5
+          initialDelaySeconds: 30
+          periodSeconds: 10
           timeoutSeconds: 3
           failureThreshold: 3
         volumeMounts:
