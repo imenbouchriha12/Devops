@@ -47,6 +47,21 @@ export class PurchaseInvoicesController {
     return this.service.findAll(businessId, query);
   }
 
+
+  ////////treasury////////
+ // GET /businesses/:businessId/purchase-invoices/approved-partial
+@Get('approved-partial')
+@Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT, Role.TEAM_MEMBER)
+async findApprovedOrPartial(
+  @Param('businessId', ParseUUIDPipe) businessId: string,
+  @Query() query: any,
+) {
+  return this.service.findApprovedOrPartial(businessId, query);
+}
+  ////////treasury////////
+
+
+
   // GET /businesses/:businessId/purchase-invoices/by-po/:poId
   // Vérifier si des factures existent déjà pour un BC donné
   @Get('by-po/:poId')
@@ -123,4 +138,9 @@ export class PurchaseInvoicesController {
     // TODO: Déprécier cette route et utiliser PaymentsModule à la place
     return this.service.updatePayment(businessId, id, dto);
   }
+
+
+
+
+
 }
