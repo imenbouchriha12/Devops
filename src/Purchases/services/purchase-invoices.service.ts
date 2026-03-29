@@ -142,20 +142,20 @@ export class PurchaseInvoicesService {
   // ─── APPROVE ──────────────────────────────────────────────────────────────────
 async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
   const inv = await this.findOne(businessId, id);
- 
+
   if (inv.status !== InvoiceStatus.PENDING) {
     throw new BadRequestException(
       `Approbation impossible. Statut : ${inv.status}. Requis : PENDING.`,
     );
   }
- 
+
   // Recalculer net_amount au cas où il aurait été modifié
   const net = Math.round(
     (Number(inv.subtotal_ht) + Number(inv.tax_amount) + Number(inv.timbre_fiscal)) * 1000,
   ) / 1000;
   inv.net_amount = net;
   inv.status = InvoiceStatus.APPROVED;
- 
+
   return this.invRepo.save(inv);
 }
 
@@ -244,4 +244,40 @@ async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
   private round(v: number): number {
     return Math.round(v * 1000) / 1000;
   }
+
+
+
+////////treasury////////
+// ─── FIND APPROVED OR PARTIALLY_PAID ──────────────────────────────────────────
+async findApprovedOrPartial(businessId: string, query: any = {}) {
+  const {
+    sort_field = 'due_date',
+    sort_dir   = 'asc',
+    page = 1,
+    limit = 20
+  } = query;
+
+  const qb = this.invRepo
+    .createQueryBuilder('inv')
+    .leftJoinAndSelect('inv.supplier', 'supplier')
+    .where('inv.business_id = :businessId', { businessId })
+    .andWhere('inv.status IN (:...statuses)', {
+      statuses: [InvoiceStatus.APPROVED, InvoiceStatus.PARTIALLY_PAID]
+    });
+
+  // Apply whitelist sorting
+  const orderColumn = SORTABLE_FIELDS[sort_field] ?? 'inv.due_date';
+  const orderDir = sort_dir?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  qb.orderBy(orderColumn, orderDir);
+
+  // Pagination
+  const skip = (Number(page) - 1) * Number(limit);
+  qb.skip(skip).take(Number(limit));
+
+  const [data, total] = await qb.getManyAndCount();
+  const total_pages = Math.ceil(total / Number(limit));
+
+  return { data, total, page: Number(page), limit: Number(limit), total_pages };
+}
+////////treasury////////
 }

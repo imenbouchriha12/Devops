@@ -46,7 +46,7 @@ interface GeminiResponse {
 export class PoAiGeneratorService {
   private readonly logger = new Logger(PoAiGeneratorService.name);
   private readonly apiKey: string;
-  private readonly apiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
+  private readonly apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
   constructor(
     private readonly config: ConfigService,
@@ -114,16 +114,7 @@ export class PoAiGeneratorService {
       return generatedPO;
     } catch (error: any) {
       this.logger.error(`Erreur génération BC: ${error.message}`);
-      
-      // Re-throw BadRequestException and NotFoundException as-is
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-      
-      // For other errors, wrap in a user-friendly message
-      throw new BadRequestException(
-        `Impossible de générer le bon de commande: ${error.message || 'Erreur inconnue'}. Veuillez créer le BC manuellement.`
-      );
+      throw error;
     }
   }
 
@@ -178,14 +169,6 @@ RÉPONDS UNIQUEMENT EN JSON (sans markdown):
 
     if (!response.ok) {
       const error = await response.text();
-      
-      // Handle quota exceeded error specifically
-      if (response.status === 429) {
-        throw new BadRequestException(
-          'Le quota de l\'API Gemini est dépassé. Veuillez réessayer dans quelques instants ou créer le bon de commande manuellement.'
-        );
-      }
-      
       throw new Error(`Gemini API error: ${response.status} - ${error}`);
     }
 

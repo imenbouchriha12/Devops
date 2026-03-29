@@ -41,9 +41,10 @@ export class SalesDashboardAiService {
       this.logger.warn('GEMINI_API_KEY non configurée — prévisions AI désactivées');
       this.model = null;
     } else {
-      // Utiliser l'API REST v1 au lieu du SDK v1beta
-      this.model = { apiKey } as any;
-      this.logger.log('Service dashboard AI initialisé avec API REST v1 (gemini-2.5-flash)');
+      const genAI = new GoogleGenerativeAI(apiKey);
+      // Utiliser gemini-pro (version stable et largement disponible)
+      this.model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+      this.logger.log('Service dashboard AI initialisé avec succès (gemini-pro)');
     }
   }
 
@@ -150,31 +151,9 @@ Données: ${JSON.stringify(context, null, 2)}
     `;
 
     try {
-      // Utiliser l'API REST v1 directement
-      const apiKey = (this.model as any).apiKey;
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 1024,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const cleanText = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleanText);
+      const result = await this.model.generateContent(prompt);
+      const text = result.response.text().replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(text);
       
       this.logger.log(`Prévision AI générée - Revenue prédit: ${parsed.predictedRevenue} DT`);
       
