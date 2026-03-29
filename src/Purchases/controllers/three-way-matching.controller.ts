@@ -19,8 +19,10 @@ export class ThreeWayMatchingController {
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('invoiceId',  ParseUUIDPipe) invoiceId:  string,
     @Query('auto') auto?: string,
+    @Query('useAI') useAI?: string,
   ) {
-    return this.svc.matchInvoice(businessId, invoiceId, auto === 'true');
+    const enableAI = useAI !== 'false'; // Par défaut activé
+    return this.svc.matchInvoice(businessId, invoiceId, auto === 'true', enableAI);
   }
 
   // POST /businesses/:bId/three-way-matching/invoice/:invoiceId/apply
@@ -29,8 +31,10 @@ export class ThreeWayMatchingController {
   applyMatch(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Param('invoiceId',  ParseUUIDPipe) invoiceId:  string,
+    @Query('useAI') useAI?: string,
   ) {
-    return this.svc.matchInvoice(businessId, invoiceId, true);
+    const enableAI = useAI !== 'false'; // Par défaut activé
+    return this.svc.matchInvoice(businessId, invoiceId, true, enableAI);
   }
 
   // GET /businesses/:bId/three-way-matching/pending
@@ -39,7 +43,9 @@ export class ThreeWayMatchingController {
   matchAllPending(
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Query('auto') auto?: string,
+    @Query('useAI') useAI?: string,
   ) {
-    return this.svc.matchAllPending(businessId, auto === 'true');
+    const enableAI = useAI !== 'false'; // Par défaut activé
+    return this.svc.matchAllPending(businessId, auto === 'true', enableAI);
   }
 }

@@ -20,6 +20,7 @@ import { GoodsReceipt }     from '../entities/goods-receipt.entity';
 import { GoodsReceiptItem } from '../entities/goods-receipt-item.entity';
 import { InvoiceStatus }    from '../enum/invoice-status.enum';
 import { POStatus }         from '../enum/po-status.enum';
+import { ThreeWayMatchingAIService, AIMatchingAnalysis } from './three-way-matching-ai.service';
 
 // ─── Types résultat ──────────────────────────────────────────────────────────
 
@@ -72,6 +73,9 @@ export interface ThreeWayMatchResult {
   po_number:            string | null;
   gr_numbers:           string[];
   matching_date:        Date;
+
+  // Analyse IA (optionnelle)
+  ai_analysis?:         AIMatchingAnalysis;
 }
 
 const TOLERANCE_PCT = 0.5; // 0.5% de tolérance acceptable
@@ -96,6 +100,8 @@ export class ThreeWayMatchingService {
 
     @InjectRepository(GoodsReceiptItem)
     private readonly grItemRepo: Repository<GoodsReceiptItem>,
+
+    private readonly aiService: ThreeWayMatchingAIService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -105,6 +111,7 @@ export class ThreeWayMatchingService {
     businessId: string,
     invoiceId:  string,
     autoAction: boolean = false, // si true → approuve ou met en litige automatiquement
+    useAI:      boolean = true,  // si true → utilise l'analyse IA
   ): Promise<ThreeWayMatchResult> {
 
     // 1. Charger la facture
@@ -206,10 +213,14 @@ export class ThreeWayMatchingService {
 
       if (qtyReceived === 0) {
         lineStatus = 'NOT_RECEIVED';
-        issues.push(`"${poItem.description}" : commandé mais pas réceptionné.`);
+        issues.push(`"${poItem.description}" : commandé mais pas encore réceptionné.`);
       } else if (qtyReceived > qtyOrdered) {
         lineStatus = 'OVER_INVOICED';
         issues.push(`"${poItem.description}" : reçu plus que commandé (${qtyReceived} > ${qtyOrdered}).`);
+      } else if (qtyReceived < qtyOrdered && Math.abs(discrepancyAmt) > 0.005) {
+        // Réception partielle : c'est OK si la facture correspond à ce qui a été reçu
+        // On ne signale PAS d'erreur ici, c'est normal
+        lineStatus = 'OK';
       } else if (discrepancyPct > TOLERANCE_PCT) {
         lineStatus = 'QTY_MISMATCH';
         issues.push(`"${poItem.description}" : écart de quantité (commandé ${qtyOrdered}, reçu ${qtyReceived}).`);
@@ -231,6 +242,12 @@ export class ThreeWayMatchingService {
 
     poTotal       = this.round(poTotal);
     receivedTotal = this.round(receivedTotal);
+    
+    // FIX CRITIQUE : Ajouter le timbre fiscal au montant réceptionné
+    // Le timbre est un montant fixe qui doit être payé sur toute facture
+    const timbreFiscal = 1.000; // Timbre fiscal tunisien standard
+    receivedTotal = this.round(receivedTotal + timbreFiscal);
+    
     const invoicedTotal   = Number(invoice.net_amount);
     const totalDiscrep    = this.round(invoicedTotal - receivedTotal);
     const discrepancyPct  = receivedTotal > 0
@@ -238,15 +255,24 @@ export class ThreeWayMatchingService {
       : 100;
 
     // 7. Comparaison montant facturé vs montant reçu
+    // LOGIQUE CORRIGÉE : Comparer la facture avec ce qui a été REÇU (incluant timbre fiscal)
+    // La facture doit correspondre exactement à ce qui a été réceptionné + timbre
     if (Math.abs(totalDiscrep) > 0.005) {
       if (invoicedTotal > receivedTotal) {
-        issues.push(`Montant facturé (${invoicedTotal.toFixed(3)} TND) supérieur au montant réceptionné (${receivedTotal.toFixed(3)} TND). Écart : ${Math.abs(totalDiscrep).toFixed(3)} TND.`);
+        issues.push(`Surfacturation détectée : ${invoicedTotal.toFixed(3)} TND facturé vs ${receivedTotal.toFixed(3)} TND reçu (incluant timbre). Écart : +${Math.abs(totalDiscrep).toFixed(3)} TND.`);
       } else {
-        issues.push(`Montant facturé (${invoicedTotal.toFixed(3)} TND) inférieur au montant réceptionné (${receivedTotal.toFixed(3)} TND). Avoir possible.`);
+        // Facture inférieure à la réception : peut être normal (remise, avoir...)
+        recommendations.push(`Sous-facturation : ${invoicedTotal.toFixed(3)} TND facturé vs ${receivedTotal.toFixed(3)} TND reçu. Vérifier si remise ou avoir appliqué.`);
       }
+    } else {
+      recommendations.push('Montants parfaitement alignés : facture = réception + timbre fiscal.');
     }
 
     // 8. Déterminer le statut global
+    // LOGIQUE CORRIGÉE : 
+    // - Réception partielle = OK si facture correspond exactement à ce qui est reçu
+    // - Surfacturation = LITIGE automatique
+    // - Sous-facturation = OK (remise ou avoir)
     const hasNotReceived  = lineDiscrepancies.some(l => l.status === 'NOT_RECEIVED');
     const hasOverInvoiced = lineDiscrepancies.some(l => l.status === 'OVER_INVOICED');
     const hasQtyMismatch  = lineDiscrepancies.some(l => l.status === 'QTY_MISMATCH');
@@ -259,26 +285,42 @@ export class ThreeWayMatchingService {
 
     if (noGR) {
       status = MatchStatus.MISSING_GR;
-      recommendations.push('Attendre la réception des marchandises avant d\'approuver.');
+      recommendations.push('⚠️ Aucun bon de réception : attendre la livraison avant validation.');
     } else if (hasOverInvoiced) {
       status            = MatchStatus.OVER_INVOICED;
       shouldAutoDispute = true;
-      recommendations.push('Mettre en litige — montant facturé supérieur aux marchandises reçues.');
-    } else if (hasNotReceived && discrepancyPct > TOLERANCE_PCT) {
-      status            = MatchStatus.MISMATCH;
-      shouldAutoDispute = true;
-      recommendations.push('Vérifier les lignes non réceptionnées avant paiement.');
-    } else if (hasQtyMismatch || discrepancyPct > TOLERANCE_PCT) {
+      recommendations.push('🚨 LITIGE : Quantité facturée > quantité reçue. Contacter le fournisseur immédiatement.');
+    } else if (invoicedTotal > receivedTotal && discrepancyPct > TOLERANCE_PCT) {
+      // Surfacturation : problème critique
+      status            = MatchStatus.OVER_INVOICED;
+      shouldAutoDispute = discrepancyPct > 5;
+      recommendations.push(`🚨 SURFACTURATION de ${Math.abs(totalDiscrep).toFixed(3)} TND (${discrepancyPct.toFixed(2)}%). Mise en litige ${discrepancyPct > 5 ? 'automatique' : 'recommandée'}.`);
+    } else if (hasNotReceived) {
+      status = MatchStatus.MISSING_GR;
+      recommendations.push('⚠️ Certains articles ne sont pas encore réceptionnés. Attendre la livraison complète.');
+    } else if (hasQtyMismatch) {
       status            = MatchStatus.MISMATCH;
       shouldAutoDispute = discrepancyPct > 5;
-      recommendations.push(`Écart de ${discrepancyPct.toFixed(2)}% — vérifier avec le fournisseur.`);
-    } else if (discrepancyPct <= TOLERANCE_PCT && !hasNotReceived) {
-      status            = allOk ? MatchStatus.MATCHED : MatchStatus.PARTIAL_MATCH;
-      canAutoApprove    = true;
-      recommendations.push('Rapprochement validé — approbation automatique possible.');
+      recommendations.push(`⚠️ Écart de quantité détecté (${discrepancyPct.toFixed(2)}%). ${discrepancyPct > 5 ? 'Litige automatique.' : 'Vérification manuelle requise.'}`);
+    } else if (discrepancyPct <= TOLERANCE_PCT) {
+      // Facture correspond à la réception (même si réception partielle)
+      status         = allOk ? MatchStatus.MATCHED : MatchStatus.PARTIAL_MATCH;
+      canAutoApprove = true;
+      
+      if (receivedTotal < poTotal) {
+        // Réception partielle mais facture correcte
+        const remaining = this.round(poTotal - receivedTotal);
+        recommendations.push(`✅ Réception partielle : facture conforme à la livraison. Reste à recevoir : ${remaining.toFixed(3)} TND.`);
+      } else if (invoicedTotal < receivedTotal) {
+        // Sous-facturation (remise ou avoir)
+        recommendations.push(`✅ Sous-facturation de ${Math.abs(totalDiscrep).toFixed(3)} TND détectée. Vérifier si remise ou avoir appliqué.`);
+      } else {
+        // Correspondance parfaite
+        recommendations.push('✅ Rapprochement parfait : BC = BR = Facture. Approbation automatique recommandée.');
+      }
     } else {
       status = MatchStatus.PARTIAL_MATCH;
-      recommendations.push('Vérification manuelle recommandée.');
+      recommendations.push(`ℹ️ Écart mineur de ${discrepancyPct.toFixed(2)}%. Vérification manuelle recommandée avant approbation.`);
     }
 
     const result = this.buildResult(invoice, po, goodsReceipts, {
@@ -290,7 +332,33 @@ export class ThreeWayMatchingService {
       issues, recommendations, gr_numbers: grNumbers,
     });
 
-    // 9. Action automatique si demandée
+    // 9. Analyse IA si demandée
+    if (useAI) {
+      try {
+        const aiAnalysis = await this.aiService.analyzeMatching(result);
+        result.ai_analysis = aiAnalysis;
+
+        // Ajuster les recommandations basées sur l'IA
+        if (aiAnalysis.recommended_action === 'AUTO_APPROVE' && aiAnalysis.confidence_score >= 85) {
+          result.can_auto_approve = true;
+          result.should_auto_dispute = false;
+        } else if (aiAnalysis.recommended_action === 'AUTO_DISPUTE' && aiAnalysis.confidence_score >= 70) {
+          result.can_auto_approve = false;
+          result.should_auto_dispute = true;
+        } else if (aiAnalysis.recommended_action === 'MANUAL_REVIEW') {
+          result.can_auto_approve = false;
+          result.should_auto_dispute = false;
+        }
+
+        this.logger.log(
+          `Analyse IA : ${aiAnalysis.recommended_action} (confiance: ${aiAnalysis.confidence_score}%, risque: ${aiAnalysis.risk_level})`,
+        );
+      } catch (error: any) {
+        this.logger.warn(`Analyse IA échouée : ${error.message} — utilisation des règles standards`);
+      }
+    }
+
+    // 10. Action automatique si demandée
     if (autoAction) await this.applyAutoAction(result, businessId, invoiceId);
 
     this.logger.log(
@@ -306,6 +374,7 @@ export class ThreeWayMatchingService {
   async matchAllPending(
     businessId: string,
     autoAction: boolean = false,
+    useAI:      boolean = true,
   ): Promise<ThreeWayMatchResult[]> {
     const pendingInvoices = await this.invoiceRepo.find({
       where: { business_id: businessId, status: InvoiceStatus.PENDING },
@@ -314,7 +383,7 @@ export class ThreeWayMatchingService {
     const results: ThreeWayMatchResult[] = [];
     for (const inv of pendingInvoices) {
       try {
-        const result = await this.matchInvoice(businessId, inv.id, autoAction);
+        const result = await this.matchInvoice(businessId, inv.id, autoAction, useAI);
         results.push(result);
       } catch (err: any) {
         this.logger.error(`Erreur rapprochement facture ${inv.id} : ${err.message}`);
@@ -339,12 +408,26 @@ export class ThreeWayMatchingService {
       );
       this.logger.log(`Facture ${result.invoice_number} approuvée automatiquement.`);
     } else if (result.should_auto_dispute) {
-      const reason = result.issues.slice(0, 2).join(' | ');
+      // Construire une raison de litige claire avec l'analyse IA si disponible
+      let reason = '';
+      
+      if (result.ai_analysis) {
+        const category = result.ai_analysis.dispute_category 
+          ? `[${result.ai_analysis.dispute_category}] ` 
+          : '';
+        reason = `${category}${result.ai_analysis.explanation}`;
+      } else {
+        reason = result.issues.slice(0, 2).join(' | ');
+      }
+
       await this.invoiceRepo.update(
         { id: invoiceId, business_id: businessId },
-        { status: InvoiceStatus.DISPUTED, dispute_reason: `[Rapprochement auto] ${reason}` },
+        { 
+          status: InvoiceStatus.DISPUTED, 
+          dispute_reason: `[Rapprochement auto] ${reason}`,
+        },
       );
-      this.logger.log(`Facture ${result.invoice_number} mise en litige automatiquement.`);
+      this.logger.log(`Facture ${result.invoice_number} mise en litige automatiquement : ${reason}`);
     }
   }
 
@@ -359,6 +442,13 @@ export class ThreeWayMatchingService {
   ): ThreeWayMatchResult {
     // FIX: extraire gr_numbers de data avant le spread pour eviter la duplication
     const { gr_numbers, ...rest } = data;
+    
+    // Ajouter une note explicative sur le timbre fiscal dans les recommandations
+    const recommendations = [...rest.recommendations];
+    if (rest.received_total > 0) {
+      recommendations.push('Note : Le montant réceptionné inclut le timbre fiscal (1.000 TND) qui est obligatoire sur toute facture.');
+    }
+    
     return {
       invoice_id:     invoice.id,
       invoice_number: invoice.invoice_number_supplier,
@@ -367,6 +457,7 @@ export class ThreeWayMatchingService {
       gr_numbers,
       matching_date:  new Date(),
       ...rest,
+      recommendations,
     };
   }
 

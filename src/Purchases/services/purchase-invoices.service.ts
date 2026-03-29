@@ -110,6 +110,15 @@ export class PurchaseInvoicesService {
     return inv;
   }
 
+  // ─── FIND BY PO (vérifier si des factures existent pour un BC) ───────────────
+  async findByPO(businessId: string, poId: string): Promise<PurchaseInvoice[]> {
+    return this.invRepo.find({
+      where:     { business_id: businessId, supplier_po_id: poId },
+      relations: ['supplier'],
+      order:     { created_at: 'DESC' },
+    });
+  }
+
   // ─── UPDATE (PENDING seulement) ───────────────────────────────────────────────
   async update(businessId: string, id: string, dto: UpdatePurchaseInvoiceDto): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
@@ -182,6 +191,11 @@ async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
   ): Promise<PurchaseInvoice> {
     const inv = await this.findOne(businessId, id);
 
+    // ANOMALIE 1 FIX: Validation du montant AVANT toute logique
+    if (dto.paid_amount < 0) {
+      throw new BadRequestException('Le montant payé ne peut pas être négatif.');
+    }
+
     if (dto.paid_amount > Number(inv.net_amount)) {
       throw new BadRequestException(
         `Le montant payé (${dto.paid_amount}) dépasse le net TTC (${inv.net_amount}).`,
@@ -190,12 +204,13 @@ async approve(businessId: string, id: string): Promise<PurchaseInvoice> {
 
     inv.paid_amount = dto.paid_amount;
 
+    // ANOMALIE 2 FIX: Logique de statut corrigée (if/else if/else)
     if (dto.paid_amount >= Number(inv.net_amount)) {
       inv.status = InvoiceStatus.PAID;
-    }if (dto.paid_amount < 0) {
-      throw new BadRequestException('Le montant payé ne peut pas être négatif.');
     } else if (dto.paid_amount > 0) {
       inv.status = InvoiceStatus.PARTIALLY_PAID;
+    } else {
+      inv.status = InvoiceStatus.APPROVED; // Retour à APPROVED si paid_amount = 0
     }
 
     return this.invRepo.save(inv);

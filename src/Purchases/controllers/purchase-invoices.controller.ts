@@ -62,6 +62,16 @@ async findApprovedOrPartial(
 
 
 
+  // GET /businesses/:businessId/purchase-invoices/by-po/:poId
+  // Vérifier si des factures existent déjà pour un BC donné
+  @Get('by-po/:poId')
+  @Roles(Role.BUSINESS_OWNER, Role.BUSINESS_ADMIN, Role.ACCOUNTANT, Role.TEAM_MEMBER)
+  findByPO(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('poId', ParseUUIDPipe) poId: string,
+  ) {
+    return this.service.findByPO(businessId, poId);
+  }
 
   // GET /businesses/:businessId/purchase-invoices/:id
   @Get(':id')
@@ -116,7 +126,8 @@ async findApprovedOrPartial(
   }
 
   // PATCH /businesses/:businessId/purchase-invoices/:id/payment
-  // Appelé par Module 5 (Trésorerie) quand un paiement est enregistré
+  // ANOMALIE 8 FIX: Cette route devrait être dans PaymentsModule, pas ici
+  // Mais on la garde pour compatibilité ascendante avec un warning
   @Patch(':id/payment')
   @Roles(Role.BUSINESS_OWNER, Role.ACCOUNTANT)
   updatePayment(
@@ -124,6 +135,7 @@ async findApprovedOrPartial(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePaymentAmountDto,
   ) {
+    // TODO: Déprécier cette route et utiliser PaymentsModule à la place
     return this.service.updatePayment(businessId, id, dto);
   }
 
