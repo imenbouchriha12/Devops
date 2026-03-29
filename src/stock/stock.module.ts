@@ -4,12 +4,18 @@ import { Product } from './entities/product.entity';
 import { ProductCategory } from './entities/product-category.entity';
 import { StockMovement } from './entities/stock-movement.entity';
 import { StockMovementsService } from './services/stock-movements/stock-movements.service';
+import { ProductCategoriesService } from './services/product-categories.service';
+import { ProductsService } from './services/products.service';
+import { ProductCategoriesController } from './controllers/product-categories.controller';
+import { ProductsController } from './controllers/products.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Product, ProductCategory, StockMovement]),
   ],
+  controllers: [ProductCategoriesController, ProductsController],
   exports: [TypeOrmModule],
-  providers: [StockMovementsService],
+  providers: [StockMovementsService, ProductCategoriesService, ProductsService],
 })
 export class StockModule {}
+
