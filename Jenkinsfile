@@ -108,26 +108,28 @@ pipeline {
         // Security Scan APRÈS build Docker
         // Trivy scanne l'image qui vient d'être buildée
         // ─────────────────────────────────────────────
-        stage('🔐 Security Scan') {
-        // ─────────────────────────────────────────────
-            steps {
-                sh '''
-                    echo "🔐 Installing Trivy if needed..."
-                    if ! command -v trivy > /dev/null 2>&1; then
-                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-                          | sh -s -- -b /usr/local/bin
-                    fi
+stage('🔐 Security Scan') {
+    steps {
+        sh '''
+            TRIVY_PATH="/var/lib/jenkins/tools/trivy/trivy"
 
-                    echo "🔍 Scanning image for vulnerabilities..."
-                    trivy image \
-                      --exit-code 0 \
-                      --severity HIGH,CRITICAL \
-                      --no-progress \
-                      --format table \
-                      imen077/backend:$BUILD_NUMBER || true
-                '''
-            }
-        }
+            echo "🔐 Installing Trivy if needed..."
+            if [ ! -f "$TRIVY_PATH" ]; then
+                mkdir -p /var/lib/jenkins/tools/trivy
+                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+                  | sh -s -- -b /var/lib/jenkins/tools/trivy
+            fi
+
+            echo "🔍 Scanning image for vulnerabilities..."
+            $TRIVY_PATH image \
+              --exit-code 0 \
+              --severity HIGH,CRITICAL \
+              --no-progress \
+              --format table \
+              imen077/backend:$BUILD_NUMBER || true
+        '''
+    }
+}
 
         // ─────────────────────────────────────────────
         stage('📤 Push Docker Image') {
