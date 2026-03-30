@@ -42,6 +42,15 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────
+        stage('🧪 Tests') {
+        // ─────────────────────────────────────────────
+            steps {
+                // ⚠️ Si pas encore de tests → garde le || true
+                sh 'npm run test:cov || true'
+            }
+        }
+
+        // ─────────────────────────────────────────────
         stage('🔬 SonarQube Analysis') {
         // ─────────────────────────────────────────────
             steps {
@@ -52,9 +61,13 @@ pipeline {
                             sonar-scanner \
                               -Dsonar.projectKey=backend \
                               -Dsonar.sources=src \
+                              -Dsonar.tests=src \
+                              -Dsonar.test.inclusions=**/*.spec.ts \
+                              -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                              -Dsonar.coverage.exclusions=**/*.module.ts,**/main.ts,**/*.dto.ts \
+                              -Dsonar.exclusions=node_modules/**,dist/**,**/*.test.ts \
                               -Dsonar.host.url=http://192.168.33.10:9000 \
-                              -Dsonar.login=$SONAR_TOKEN \
-                              -Dsonar.exclusions=node_modules/**,dist/**,**/*.spec.ts,**/*.test.ts
+                              -Dsonar.login=$SONAR_TOKEN
                         '''
                     }
                 }
@@ -92,6 +105,31 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────
+        // Security Scan APRÈS build Docker
+        // Trivy scanne l'image qui vient d'être buildée
+        // ─────────────────────────────────────────────
+        stage('🔐 Security Scan') {
+        // ─────────────────────────────────────────────
+            steps {
+                sh '''
+                    echo "🔐 Installing Trivy if needed..."
+                    if ! command -v trivy > /dev/null 2>&1; then
+                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+                          | sh -s -- -b /usr/local/bin
+                    fi
+
+                    echo "🔍 Scanning image for vulnerabilities..."
+                    trivy image \
+                      --exit-code 0 \
+                      --severity HIGH,CRITICAL \
+                      --no-progress \
+                      --format table \
+                      imen077/backend:$BUILD_NUMBER || true
+                '''
+            }
+        }
+
+        // ─────────────────────────────────────────────
         stage('📤 Push Docker Image') {
         // ─────────────────────────────────────────────
             steps {
@@ -108,6 +146,9 @@ pipeline {
 
         // ─────────────────────────────────────────────
         stage('🚀 Deploy to Kubernetes') {
+        // ─────────────────────────────────────────────
+        // Applique tous les manifests puis attend le rollout.
+        // En cas d'échec → rollback automatique vers la version précédente.
         // ─────────────────────────────────────────────
             steps {
                 script {
@@ -128,8 +169,11 @@ pipeline {
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" apply -f postgres.yaml -n production
 
                                 echo "⏳ Waiting for PostgreSQL to be ready..."
-                                kubectl --kubeconfig="$KUBECONFIG_FILE" wait --for=condition=ready pod \
-                                    -l app=postgres -n production --timeout=3m
+                                kubectl --kubeconfig="$KUBECONFIG_FILE" wait \
+                                    --for=condition=ready pod \
+                                    -l app=postgres \
+                                    -n production \
+                                    --timeout=3m
 
                                 echo "🔌 Applying Service..."
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" apply -f service.yaml -n production
@@ -138,8 +182,25 @@ pipeline {
                                 kubectl --kubeconfig="$KUBECONFIG_FILE" apply -f deployment.yaml -n production
 
                                 echo "⏳ Waiting for backend rollout..."
-                                kubectl --kubeconfig="$KUBECONFIG_FILE" rollout status deployment/backend \
-                                    -n production --timeout=10m
+                                # Sauvegarder la revision actuelle avant deploy
+                                CURRENT=$(kubectl --kubeconfig="$KUBECONFIG_FILE" \
+                                    rollout history deployment/backend -n production \
+                                    | tail -2 | head -1 | awk '{print $1}')
+
+                                echo "📌 Current revision: $CURRENT"
+
+                                # Si le rollout échoue → rollback automatique
+                                if ! kubectl --kubeconfig="$KUBECONFIG_FILE" \
+                                    rollout status deployment/backend \
+                                    -n production --timeout=10m; then
+                                    echo "🔄 Deploy failed! Rolling back to revision $CURRENT..."
+                                    kubectl --kubeconfig="$KUBECONFIG_FILE" \
+                                        rollout undo deployment/backend -n production
+                                    echo "✅ Rollback completed."
+                                    exit 1
+                                fi
+
+                                echo "✅ Rollout successful!"
                             '''
                         }
                     }
